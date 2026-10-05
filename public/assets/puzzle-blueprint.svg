@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <defs>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.8" />
+      <stop offset="40%" stop-color="#4facfe" stop-opacity="0.4" />
+      <stop offset="80%" stop-color="#7000ff" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#050811" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="cyberBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="50%" stop-color="#9d4edd" />
+      <stop offset="100%" stop-color="#ff007f" />
+    </linearGradient>
+    <pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1f293d" stroke-width="0.75" />
+      <circle cx="0" cy="0" r="1.5" fill="#00f2fe" opacity="0.3" />
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="600" fill="#070b14" />
+  <rect width="600" height="600" fill="url(#gridPattern)" />
+  <circle cx="300" cy="300" r="280" fill="url(#coreGlow)" />
+
+  <!-- Outer Tech Hex Rings -->
+  <circle cx="300" cy="300" r="250" fill="none" stroke="#1f2b42" stroke-width="2" stroke-dasharray="10 15" />
+  <circle cx="300" cy="300" r="220" fill="none" stroke="url(#cyberBorder)" stroke-width="2" opacity="0.6" />
+  <circle cx="300" cy="300" r="190" fill="none" stroke="#00f2fe" stroke-width="1.5" stroke-dasharray="6 8" opacity="0.7" />
+
+  <!-- Circuit nodes -->
+  <g stroke="#00f2fe" stroke-width="1.5" opacity="0.5">
+    <line x1="80" y1="300" x2="150" y2="300" />
+    <circle cx="80" cy="300" r="3" fill="#00f2fe" />
+    <line x1="520" y1="300" x2="450" y2="300" />
+    <circle cx="520" cy="300" r="3" fill="#00f2fe" />
+    <line x1="300" y1="80" x2="300" y2="150" />
+    <circle cx="300" cy="80" r="3" fill="#00f2fe" />
+    <line x1="300" y1="520" x2="300" y2="450" />
+    <circle cx="300" cy="520" r="3" fill="#00f2fe" />
+  </g>
+
+  <!-- Mosaic Central Geometry -->
+  <g transform="translate(300, 300)">
+    <!-- Rotating geometric triangles and segments -->
+    <polygon points="0,-140 121,-70 121,70 0,140 -121,70 -121,-70" fill="none" stroke="#9d4edd" stroke-width="2.5" />
+    <polygon points="0,-110 95,-55 95,55 0,110 -95,55 -95,-55" fill="#0d1527" stroke="#00f2fe" stroke-width="1.5" opacity="0.9" />
+
+    <!-- Core Mosaic shards -->
+    <polygon points="0,-80 40,-20 0,0 -40,-20" fill="#00f2fe" opacity="0.8" />
+    <polygon points="69,-40 70,25 0,0 40,-20" fill="#4facfe" opacity="0.75" />
+    <polygon points="70,25 0,80 0,0" fill="#7000ff" opacity="0.8" />
+    <polygon points="0,80 -70,25 0,0" fill="#9d4edd" opacity="0.85" />
+    <polygon points="-70,25 -69,-40 0,0 -40,-20" fill="#ff007f" opacity="0.75" />
+
+    <!-- Center Emblem -->
+    <circle cx="0" cy="0" r="28" fill="#050811" stroke="#00f2fe" stroke-width="2" />
+    <text x="0" y="9" font-family="monospace, sans-serif" font-size="22" font-weight="900" fill="#00f2fe" text-anchor="middle" letter-spacing="1">M</text>
+  </g>
+
+  <!-- Tech Markings -->
+  <text x="30" y="45" font-family="monospace" font-size="12" fill="#00f2fe" opacity="0.6">SYS::MOSAIC_BLUEPRINT_CORE</text>
+  <text x="30" y="65" font-family="monospace" font-size="10" fill="#8892b0" opacity="0.5">SECTOR: OMEGA-09 // FREQ 433.92MHZ</text>
+  <text x="570" y="570" font-family="monospace" font-size="11" fill="#9d4edd" opacity="0.6" text-anchor="end">STATUS::DECRYPTING</text>
+</svg>

@@ -1,0 +1,233 @@
+/**
+ * MOSAIC — Game Controller (Phase 2)
+ */
+
+import { Request, Response } from 'express';
+import * as gameService from '../services/game.service';
+import { sendSuccess, sendError, sendInternalError } from '../utils/response.utils';
+import { ErrorCode } from '../types/auth.types';
+import { logger } from '../utils/logger';
+
+// ─── GM Handlers ──────────────────────────────────────────────────────────────
+
+export async function createLobby(req: Request, res: Response): Promise<void> {
+  try {
+    const { teamName, teamSize, playerNames } = req.body;
+    const game = await gameService.createGameLobby({ teamName, teamSize, playerNames });
+    sendSuccess(
+      res,
+      {
+        gameId: game._id,
+        gameCode: game.gameCode,
+        teamName: game.teamName,
+        teamSize: game.teamSize,
+        phase: game.phase,
+      },
+      201
+    );
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('createLobby error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function getActiveGame(_req: Request, res: Response): Promise<void> {
+  try {
+    const game = await gameService.getActiveGame();
+    if (!game) {
+      sendSuccess(res, { game: null });
+      return;
+    }
+    const state = await gameService.getGameForGm(String(game._id));
+    sendSuccess(res, { game: state });
+  } catch (err) {
+    logger.error('getActiveGame error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function getGmGameState(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const state = await gameService.getGameForGm(gameId);
+    if (!state) {
+      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game not found.', 404);
+      return;
+    }
+    sendSuccess(res, state);
+  } catch (err) {
+    logger.error('getGmGameState error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function startGame(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.startGame(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      gameCode: game.gameCode,
+      phase: game.phase,
+      phaseStartedAt: game.phaseStartedAt,
+      phaseEndsAt: game.phaseEndsAt,
+      totalPieces: game.puzzlePieces.length,
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('startGame error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function emergencyEndRound(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.emergencyEndRound1(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      message: 'Round 1 ended by GM.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('emergencyEndRound error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function restartGame(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.restartGame(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      message: 'Game restarted to lobby.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('restartGame error:', err);
+    sendInternalError(res);
+  }
+}
+
+// ─── Player & Public Handlers ─────────────────────────────────────────────────
+
+export async function getPublicLobby(req: Request, res: Response): Promise<void> {
+  try {
+    const code = req.params.code as string;
+    const lobby = await gameService.getPublicLobbyByCode(code);
+    if (!lobby) {
+      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game not found.', 404);
+      return;
+    }
+    sendSuccess(res, lobby);
+  } catch (err) {
+    logger.error('getPublicLobby error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function getPlayerGameState(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const playerId = req.playerId;
+    if (!playerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const state = await gameService.getGameForPlayer(gameId, playerId);
+    if (!state) {
+      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game or player not found.', 404);
+      return;
+    }
+
+    sendSuccess(res, state);
+  } catch (err) {
+    logger.error('getPlayerGameState error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function scanQr(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const playerId = req.playerId;
+    const { qrCodeId } = req.body;
+
+    if (!playerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const result = await gameService.scanQrCode({ gameId, playerId, qrCodeId });
+    sendSuccess(res, result);
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('scanQr error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function submitAnswer(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const playerId = req.playerId;
+    const { qrCodeId, questionId, answer, clientActionId } = req.body;
+
+    if (!playerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const result = await gameService.submitAnswer({
+      gameId,
+      playerId,
+      qrCodeId,
+      questionId,
+      answer,
+      clientActionId,
+    });
+    sendSuccess(res, result);
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('submitAnswer error:', err);
+    sendInternalError(res);
+  }
+}
