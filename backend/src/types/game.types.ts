@@ -160,17 +160,28 @@ export const SocketEvent = {
   PUZZLE_UPDATE: 'r1:puzzle_update',
   QR_SCAN_RESULT: 'r1:qr_scan_result',
 
-  // Server → Client: Round 2
+  // Server → Client: Round 2 & Transition
+  TRANSITION_STARTED: 'r2:transition_started',
+  PLAYER_ROLE_ASSIGNED_PRIVATE: 'r2:role_assigned_private',
+  PLAYER_STATUS_CHANGED: 'r2:player_status_changed',
   ROUND_2_STARTED: 'r2:started',
   KILL_OCCURRED: 'r2:kill',
+  KILL_RECORDED: 'r2:kill_recorded',
   BODY_REPORT_STARTED: 'r2:body_report',
+  BODY_REPORTED: 'r2:body_reported',
+  BODY_REPORT_EXPIRED: 'r2:body_report_expired',
+  MOVE_TO_VOTING_STARTED: 'r2:move_to_voting_started',
   VOTING_STARTED: 'r2:voting_started',
+  VOTE_SUBMITTED: 'r2:vote_submitted',
   VOTE_CAST: 'r2:vote_cast',
+  VOTING_CLOSED: 'r2:voting_closed',
   VOTING_RESULT: 'r2:voting_result',
   PLAYER_ELIMINATED: 'r2:player_eliminated',
 
   // Server → Client: Game completion
   GAME_COMPLETE: 'game:complete',
+  GAME_WON: 'game:won',
+  GAME_COMPLETED: 'game:completed',
   TIMER_TICK: 'game:timer_tick',
 
   // Client → Server: Actions

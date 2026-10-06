@@ -124,6 +124,22 @@ export const answerSubmissionSchema = z.object({
   clientActionId: z.string().optional(),
 });
 
+// ─── Phase 3 Schemas ──────────────────────────────────────────────────────────
+
+export const killSubmissionSchema = z.object({
+  victimPlayerId: z.string().trim().min(1, 'Victim player ID is required'),
+  clientActionId: z.string().optional(),
+});
+
+export const bodyReportSubmissionSchema = z.object({
+  clientActionId: z.string().optional(),
+});
+
+export const voteSubmissionSchema = z.object({
+  targetPlayerId: z.string().trim().min(1, 'Target player ID is required'),
+  clientActionId: z.string().optional(),
+});
+
 // ─── Middleware helper ────────────────────────────────────────────────────────
 
 import type { Request, Response, NextFunction } from 'express';
