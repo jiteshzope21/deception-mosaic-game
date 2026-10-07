@@ -24,6 +24,12 @@ const JoinPage = React.lazy(() => import('../../features/player/pages/JoinPage')
 const PlayerLobbyPage = React.lazy(() => import('../../features/player/pages/PlayerLobbyPage'));
 const Round1PlayerPage = React.lazy(() => import('../../features/player/pages/Round1PlayerPage'));
 const Round1CompletePage = React.lazy(() => import('../../features/player/pages/Round1CompletePage'));
+
+// Phase 3 pages
+const TransitionPage = React.lazy(() => import('../../features/player/pages/TransitionPage'));
+const Round2PlayerPage = React.lazy(() => import('../../features/player/pages/Round2PlayerPage'));
+const GameCompletePage = React.lazy(() => import('../../features/player/pages/GameCompletePage'));
+
 const GmLoginPage = React.lazy(() => import('../../features/auth/pages/GmLoginPage'));
 const GmDashboardPage = React.lazy(() => import('../../features/gm/pages/GmDashboardPage'));
 const UnauthorizedPage = React.lazy(() => import('../../components/ui/UnauthorizedPage'));
@@ -106,10 +112,9 @@ export function AppRouter() {
               </GmRoute>
             }
           />
-          {/* Future GM routes added in Phase 2+ */}
           <Route path="/gm" element={<Navigate to="/gm/dashboard" replace />} />
 
-          {/* ── Player routes ── */}
+          {/* ── Player routes (Phase 1 & 2) ── */}
           <Route
             path="/player/lobby"
             element={
@@ -134,6 +139,33 @@ export function AppRouter() {
               </PlayerRoute>
             }
           />
+
+          {/* ── Player routes (Phase 3) ── */}
+          <Route
+            path="/player/transition"
+            element={
+              <PlayerRoute>
+                <TransitionPage />
+              </PlayerRoute>
+            }
+          />
+          <Route
+            path="/player/round2"
+            element={
+              <PlayerRoute>
+                <Round2PlayerPage />
+              </PlayerRoute>
+            }
+          />
+          <Route
+            path="/player/complete"
+            element={
+              <PlayerRoute>
+                <GameCompletePage />
+              </PlayerRoute>
+            }
+          />
+
           <Route path="/player" element={<Navigate to="/player/lobby" replace />} />
 
           {/* ── Utility routes ── */}

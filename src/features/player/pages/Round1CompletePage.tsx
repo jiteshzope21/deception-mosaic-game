@@ -8,6 +8,8 @@ import { CheckCircle, XCircle, Puzzle } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthContext';
 import { getPlayerGameState } from '@/services/gameService';
 import { GAME_PHASE } from '@/types/enums';
+import { subscribeToEvent } from '@/lib/socket/socketClient';
+import { SOCKET_EVENT } from '@/types/enums';
 
 export default function Round1CompletePage() {
   const { playerContext } = useAuth();
@@ -24,15 +26,37 @@ export default function Round1CompletePage() {
     async function load() {
       const res = await getPlayerGameState(gameId);
       if (!res.success) return;
-      setUnlockedCount(res.data.puzzlePieces.filter((p) => p.isUnlocked).length);
-      setTotalPieces(res.data.puzzlePieces.length);
-      setResult(res.data.result);
+      const data = res.data;
+      setUnlockedCount(data.puzzlePieces.filter((p) => p.isUnlocked).length);
+      setTotalPieces(data.puzzlePieces.length);
+      setResult(data.result);
       setIsLoaded(true);
-      // Redirect back if game hasn't even started
-      if (res.data.phase === GAME_PHASE.LOBBY) navigate('/player/lobby', { replace: true });
+      // Navigate to correct current phase
+      if (data.phase === GAME_PHASE.LOBBY) navigate('/player/lobby', { replace: true });
+      else if (data.phase === GAME_PHASE.TRANSITION) navigate('/player/transition', { replace: true });
+      else if (
+        data.phase === GAME_PHASE.ROUND_2_ACTIVE ||
+        data.phase === GAME_PHASE.BODY_REPORT ||
+        data.phase === GAME_PHASE.MOVE_TO_VOTING ||
+        data.phase === GAME_PHASE.VOTING
+      ) {
+        navigate('/player/round2', { replace: true });
+      } else if (data.phase === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
+      }
     }
     void load();
   }, [gameId, navigate]);
+
+  // Listen for GM triggering transition to Phase 3
+  useEffect(() => {
+    const unsub = subscribeToEvent<{ to: string }>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
+      if (data.to === GAME_PHASE.TRANSITION) navigate('/player/transition', { replace: true });
+      else if (data.to === GAME_PHASE.ROUND_2_ACTIVE) navigate('/player/round2', { replace: true });
+      else if (data.to === GAME_PHASE.GAME_COMPLETE) navigate('/player/complete', { replace: true });
+    });
+    return unsub;
+  }, [navigate]);
 
   const puzzleSuccess = unlockedCount === totalPieces && totalPieces > 0;
 

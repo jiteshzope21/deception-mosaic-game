@@ -2,7 +2,8 @@
  * MOSAIC — Game Service (Frontend)
  *
  * Communicates with backend for Lobby, Round 1 (Puzzle Solving),
- * QR Scanning, Answer Submissions, and GM Question Management.
+ * QR Scanning, Answer Submissions, GM Question Management, and
+ * Phase 3 (Transition, Round 2, Kill, Body Report, Vote, History).
  */
 
 import { apiClient } from '@/lib/api/apiClient';
@@ -44,6 +45,9 @@ export interface GmPlayerState {
   playerName: string;
   status: string;
   lives: number;
+  role?: string | null;
+  assignedTaskZone?: number | null;
+  assignedTaskName?: string | null;
   joinedAt: string | null;
 }
 
@@ -56,10 +60,13 @@ export interface GmGameStateData {
   result: string | null;
   phaseStartedAt: string | null;
   phaseEndsAt: string | null;
+  round2EndsAt?: string | null;
   puzzleCompleted: boolean;
   puzzlePieces: PuzzlePieceState[];
   players: GmPlayerState[];
   qrMappings: GmQrMappingState[];
+  killCount?: number;
+  votingCycle?: number;
   recentEvents: Array<{
     _id: string;
     eventType: string;
@@ -78,19 +85,35 @@ export interface PlayerGameStateData {
   result: string | null;
   phaseStartedAt: string | null;
   phaseEndsAt: string | null;
+  round2EndsAt?: string | null;
   puzzleCompleted: boolean;
   puzzlePieces: PuzzlePieceState[];
+  // Phase 3 fields
+  myRole?: string | null;
+  myTaskZone?: number | null;
+  myTaskName?: string | null;
+  killCount?: number;
+  votingCycle?: number;
+  myVotedFor?: string | null;
+  hasReportedBody?: boolean;
   myPlayer: {
     id: string;
     playerName: string;
     lives: number;
     status: string;
+    role?: string | null;
+    assignedTaskZone?: number | null;
+    assignedTaskName?: string | null;
   };
   teammates: Array<{
     id: string;
     playerName: string;
     status: string;
     lives: number;
+  }>;
+  alivePlayers?: Array<{
+    id: string;
+    playerName: string;
   }>;
 }
 
@@ -145,10 +168,51 @@ export interface GameConfigData {
   round1DurationSeconds: number;
   transitionDurationSeconds: number;
   round2DurationSeconds: number;
+  bodyReportDurationSeconds: number;
+  moveToVotingDurationSeconds: number;
+  votingDurationSeconds: number;
   startingLives: number;
   minQuestionsPerQr: number;
   maxQuestionsPerQr: number;
+  allowSelfVote: boolean;
+  tieRule: string;
   puzzleImagePath: string | null;
+}
+
+// Phase 3 response types
+
+export interface KillResult {
+  success: boolean;
+  killNumber?: number;
+  victimPlayerId?: string;
+  cached?: boolean;
+}
+
+export interface BodyReportResult {
+  success: boolean;
+  phase?: string;
+  phaseEndsAt?: string;
+  message?: string;
+}
+
+export interface VoteResult {
+  success: boolean;
+  submittedVotesCount: number;
+  eligibleVotersCount: number;
+  cached?: boolean;
+}
+
+export interface GameHistoryEntry {
+  gameId: string;
+  gameCode: string;
+  teamName: string;
+  teamSize: number;
+  result: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  killCount: number;
+  imposterName: string | null;
+  playersCount: number;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -182,6 +246,31 @@ export async function submitAnswer(
   });
 }
 
+// Phase 3: Player actions
+
+export async function recordKill(
+  gameId: string,
+  victimPlayerId: string,
+  clientActionId?: string
+): Promise<ApiResult<KillResult>> {
+  return apiClient.post<KillResult>(`/games/${gameId}/kill`, { victimPlayerId, clientActionId });
+}
+
+export async function reportBody(
+  gameId: string,
+  clientActionId?: string
+): Promise<ApiResult<BodyReportResult>> {
+  return apiClient.post<BodyReportResult>(`/games/${gameId}/body-report`, { clientActionId });
+}
+
+export async function submitVote(
+  gameId: string,
+  targetPlayerId: string,
+  clientActionId?: string
+): Promise<ApiResult<VoteResult>> {
+  return apiClient.post<VoteResult>(`/games/${gameId}/vote`, { targetPlayerId, clientActionId });
+}
+
 // ─── GM API ───────────────────────────────────────────────────────────────────
 
 export async function createLobby(
@@ -210,6 +299,24 @@ export async function emergencyEndRound(gameId: string): Promise<ApiResult<{ gam
 
 export async function restartGame(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; message: string }>> {
   return apiClient.post(`/games/${gameId}/restart`);
+}
+
+// Phase 3: GM controls
+
+export async function gmStartTransition(gameId: string): Promise<ApiResult<{ gameId: string; phase: string }>> {
+  return apiClient.post(`/games/${gameId}/transition`);
+}
+
+export async function gmStartRound2(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; round2EndsAt: string }>> {
+  return apiClient.post(`/games/${gameId}/start-round2`);
+}
+
+export async function listGameHistory(): Promise<ApiResult<{ games: GameHistoryEntry[] }>> {
+  return apiClient.get<{ games: GameHistoryEntry[] }>('/games/history');
+}
+
+export async function getGameHistory(gameId: string): Promise<ApiResult<unknown>> {
+  return apiClient.get(`/games/${gameId}/history`);
 }
 
 // ─── GM Question Bank CRUD ────────────────────────────────────────────────────

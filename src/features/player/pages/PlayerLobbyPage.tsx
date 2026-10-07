@@ -57,6 +57,17 @@ export default function PlayerLobbyPage() {
         navigate('/player/round1', { replace: true });
       } else if (res.data.phase === GAME_PHASE.ROUND_1_COMPLETE) {
         navigate('/player/round1-complete', { replace: true });
+      } else if (res.data.phase === GAME_PHASE.TRANSITION) {
+        navigate('/player/transition', { replace: true });
+      } else if (
+        res.data.phase === GAME_PHASE.ROUND_2_ACTIVE ||
+        res.data.phase === GAME_PHASE.BODY_REPORT ||
+        res.data.phase === GAME_PHASE.MOVE_TO_VOTING ||
+        res.data.phase === GAME_PHASE.VOTING
+      ) {
+        navigate('/player/round2', { replace: true });
+      } else if (res.data.phase === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
       }
     }
 
@@ -98,6 +109,19 @@ export default function PlayerLobbyPage() {
         setPhase(data.to);
         if (data.to === GAME_PHASE.ROUND_1_ACTIVE) {
           navigate('/player/round1', { replace: true });
+        } else if (data.to === GAME_PHASE.ROUND_1_COMPLETE) {
+          navigate('/player/round1-complete', { replace: true });
+        } else if (data.to === GAME_PHASE.TRANSITION) {
+          navigate('/player/transition', { replace: true });
+        } else if (
+          data.to === GAME_PHASE.ROUND_2_ACTIVE ||
+          data.to === GAME_PHASE.BODY_REPORT ||
+          data.to === GAME_PHASE.MOVE_TO_VOTING ||
+          data.to === GAME_PHASE.VOTING
+        ) {
+          navigate('/player/round2', { replace: true });
+        } else if (data.to === GAME_PHASE.GAME_COMPLETE) {
+          navigate('/player/complete', { replace: true });
         }
       }
     });

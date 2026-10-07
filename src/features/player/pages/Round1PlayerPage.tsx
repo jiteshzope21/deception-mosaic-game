@@ -66,6 +66,23 @@ export default function Round1PlayerPage() {
       const me = d.myPlayer;
       if (me) setLives(me.lives);
 
+      if (d.phase === GAME_PHASE.TRANSITION) {
+        navigate('/player/transition', { replace: true });
+        return;
+      }
+      if (
+        d.phase === GAME_PHASE.ROUND_2_ACTIVE ||
+        d.phase === GAME_PHASE.BODY_REPORT ||
+        d.phase === GAME_PHASE.MOVE_TO_VOTING ||
+        d.phase === GAME_PHASE.VOTING
+      ) {
+        navigate('/player/round2', { replace: true });
+        return;
+      }
+      if (d.phase === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
+        return;
+      }
       if (d.phase !== GAME_PHASE.ROUND_1_ACTIVE) {
         navigate('/player/round1-complete', { replace: true });
       }
@@ -101,7 +118,18 @@ export default function Round1PlayerPage() {
     });
 
     const unsubPhase = subscribeToEvent<any>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
-      if (data?.to === GAME_PHASE.ROUND_1_COMPLETE) {
+      if (data?.to === GAME_PHASE.TRANSITION) {
+        navigate('/player/transition', { replace: true });
+      } else if (
+        data?.to === GAME_PHASE.ROUND_2_ACTIVE ||
+        data?.to === GAME_PHASE.BODY_REPORT ||
+        data?.to === GAME_PHASE.MOVE_TO_VOTING ||
+        data?.to === GAME_PHASE.VOTING
+      ) {
+        navigate('/player/round2', { replace: true });
+      } else if (data?.to === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
+      } else if (data?.to === GAME_PHASE.ROUND_1_COMPLETE) {
         setPhase(GAME_PHASE.ROUND_1_COMPLETE);
         setTimeout(() => navigate('/player/round1-complete', { replace: true }), 1500);
       }

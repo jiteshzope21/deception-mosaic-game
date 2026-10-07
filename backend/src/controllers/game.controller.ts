@@ -1,5 +1,5 @@
 /**
- * MOSAIC — Game Controller (Phase 2)
+ * MOSAIC — Game Controller (Phase 2 + Phase 3)
  */
 
 import { Request, Response } from 'express';
@@ -228,6 +228,157 @@ export async function submitAnswer(req: Request, res: Response): Promise<void> {
       return;
     }
     logger.error('submitAnswer error:', err);
+    sendInternalError(res);
+  }
+}
+
+// ─── Phase 3: GM Handlers ─────────────────────────────────────────────────────
+
+export async function startTransition(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.startTransition(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      phaseStartedAt: game.phaseStartedAt,
+      phaseEndsAt: game.phaseEndsAt,
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('startTransition error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function startRound2(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.startRound2(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      phaseStartedAt: game.phaseStartedAt,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('startRound2 error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function listGameHistory(_req: Request, res: Response): Promise<void> {
+  try {
+    const history = await gameService.listGameHistory();
+    sendSuccess(res, { games: history });
+  } catch (err) {
+    logger.error('listGameHistory error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function getGameHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const history = await gameService.getGameHistory(gameId);
+    if (!history) {
+      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game not found.', 404);
+      return;
+    }
+    sendSuccess(res, history);
+  } catch (err) {
+    logger.error('getGameHistory error:', err);
+    sendInternalError(res);
+  }
+}
+
+// ─── Phase 3: Player Handlers ─────────────────────────────────────────────────
+
+export async function recordKill(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const imposterPlayerId = req.playerId;
+    const { victimPlayerId, clientActionId } = req.body;
+
+    if (!imposterPlayerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const result = await gameService.recordKill({ gameId, imposterPlayerId, victimPlayerId, clientActionId });
+    sendSuccess(res, result);
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('recordKill error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function reportBody(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const reporterPlayerId = req.playerId;
+    const { clientActionId } = req.body;
+
+    if (!reporterPlayerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const result = await gameService.reportBody({ gameId, reporterPlayerId, clientActionId });
+    sendSuccess(res, result);
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('reportBody error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function submitVote(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const voterPlayerId = req.playerId;
+    const { targetPlayerId, clientActionId } = req.body;
+
+    if (!voterPlayerId) {
+      sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
+      return;
+    }
+    if (req.gameId && req.gameId !== gameId) {
+      sendError(res, ErrorCode.FORBIDDEN, 'Access denied: You do not belong to this game.', 403);
+      return;
+    }
+
+    const result = await gameService.submitVote({ gameId, voterPlayerId, targetPlayerId, clientActionId });
+    sendSuccess(res, result);
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('submitVote error:', err);
     sendInternalError(res);
   }
 }

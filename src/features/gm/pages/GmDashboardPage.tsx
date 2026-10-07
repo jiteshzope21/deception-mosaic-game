@@ -15,18 +15,29 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, Play, Plus, Settings, BookOpen, LogOut,
   CheckCircle, Clock, Loader2, AlertCircle, ChevronRight,
-  RotateCcw, AlertTriangle, Trash2, Edit2, X, Filter, Activity, Lock, Puzzle
+  RotateCcw, AlertTriangle, Trash2, Edit2, X, Filter, Activity, Lock, Puzzle,
+  Shield, Skull
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthContext';
 import {
   createLobby, getActiveGame, startGame, emergencyEndRound, restartGame,
   listQuestions, createQuestion, updateQuestion, deleteQuestion,
+  gmStartTransition, gmStartRound2,
   type GmGameStateData, type QuestionBankItem
 } from '@/services/gameService';
 import { subscribeToEvent } from '@/lib/socket/socketClient';
 import { SOCKET_EVENT, GAME_PHASE, type AnswerOption } from '@/types/enums';
 
-type DashboardView = 'overview' | 'create' | 'lobby' | 'round1' | 'questions';
+type DashboardView = 'overview' | 'create' | 'lobby' | 'round1' | 'round2' | 'history' | 'questions';
+
+const PHASE_3_PHASES = [
+  GAME_PHASE.TRANSITION,
+  GAME_PHASE.ROUND_2_ACTIVE,
+  GAME_PHASE.BODY_REPORT,
+  GAME_PHASE.MOVE_TO_VOTING,
+  GAME_PHASE.VOTING,
+  GAME_PHASE.GAME_COMPLETE,
+] as string[];
 
 const QUESTION_CATEGORIES = [
   'ALL',
@@ -59,10 +70,13 @@ export default function GmDashboardPage() {
     const res = await getActiveGame();
     if (res.success && res.data.game) {
       setActiveGame(res.data.game);
-      if (res.data.game.phase === GAME_PHASE.ROUND_1_ACTIVE || res.data.game.phase === GAME_PHASE.ROUND_1_COMPLETE) {
+      const p = res.data.game.phase;
+      if (p === GAME_PHASE.ROUND_1_ACTIVE || p === GAME_PHASE.ROUND_1_COMPLETE) {
         setView('round1');
-      } else if (res.data.game.phase === GAME_PHASE.LOBBY) {
+      } else if (p === GAME_PHASE.LOBBY) {
         setView('lobby');
+      } else if (PHASE_3_PHASES.includes(p)) {
+        setView('round2');
       }
     } else {
       setActiveGame(null);
@@ -103,11 +117,13 @@ export default function GmDashboardPage() {
 
     const unsubPhase = subscribeToEvent<any>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
       if (data?.to) {
-        setActiveGame((g) => g ? { ...g, phase: data.to } : g);
+        setActiveGame((g) => g ? { ...g, phase: data.to, phaseEndsAt: data.phaseEndsAt ?? g?.phaseEndsAt, round2EndsAt: data.round2EndsAt ?? g?.round2EndsAt } : g);
         if (data.to === GAME_PHASE.ROUND_1_ACTIVE || data.to === GAME_PHASE.ROUND_1_COMPLETE) {
           setView('round1');
         } else if (data.to === GAME_PHASE.LOBBY) {
           setView('lobby');
+        } else if (PHASE_3_PHASES.includes(data.to)) {
+          setView('round2');
         }
       }
     });
@@ -243,6 +259,15 @@ export default function GmDashboardPage() {
                   (activeGame.phase !== GAME_PHASE.ROUND_1_ACTIVE &&
                     activeGame.phase !== GAME_PHASE.ROUND_1_COMPLETE),
               },
+              {
+                key: 'round2',
+                label: 'Round 2 / Deception',
+                icon: Shield,
+                disabled:
+                  !activeGame ||
+                  (!PHASE_3_PHASES.includes(activeGame.phase) &&
+                    activeGame.phase !== GAME_PHASE.ROUND_1_COMPLETE),
+              },
               { key: 'questions', label: 'Question Bank', icon: BookOpen },
             ].map(({ key, label, icon: Icon, disabled }) => (
               <button
@@ -328,6 +353,10 @@ export default function GmDashboardPage() {
 
           {!isLoadingGame && view === 'round1' && activeGame && (
             <Round1Panel game={activeGame} onRefresh={loadActiveGame} />
+          )}
+
+          {!isLoadingGame && view === 'round2' && activeGame && (
+            <Round2Panel game={activeGame} onRefresh={loadActiveGame} />
           )}
 
           {!isLoadingGame && view === 'questions' && <QuestionsPanel />}
@@ -680,6 +709,18 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
     onRefresh();
   }
 
+  async function handleStartTransition() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = await gmStartTransition(game.id);
+    setIsActionLoading(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to start transition.');
+      return;
+    }
+    onRefresh();
+  }
+
   return (
     <div className="max-w-5xl space-y-6">
       {/* Top Header */}
@@ -731,6 +772,27 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
           <p className="text-red-400 text-sm">{actionError}</p>
+        </div>
+      )}
+
+      {isComplete && (
+        <div className="bg-gradient-to-r from-yellow-500/15 via-mosaic-surface to-mosaic-surface border border-yellow-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl shadow-yellow-500/5">
+          <div>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5 text-yellow-400" /> Round 1 is Complete!
+            </h3>
+            <p className="text-mosaic-muted text-sm mt-1">
+              Advance all players to the Transition phase to secretly assign roles (1 Imposter) and physical task zones.
+            </p>
+          </div>
+          <button
+            onClick={handleStartTransition}
+            disabled={isActionLoading}
+            className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold rounded-xl hover:opacity-90 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+          >
+            {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+            START TRANSITION & ROLE ASSIGNMENT
+          </button>
         </div>
       )}
 
@@ -1016,6 +1078,281 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
                 Confirm Restart
               </button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Phase 3: Round 2 Panel ───────────────────────────────────────────────────
+
+function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: () => void }) {
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isStartingR2, setIsStartingR2] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [r2Timer, setR2Timer] = useState('');
+  const [phaseTimer, setPhaseTimer] = useState('');
+
+  useEffect(() => {
+    const tick = () => {
+      if (game.round2EndsAt) {
+        const rem = Math.max(0, new Date(game.round2EndsAt).getTime() - Date.now());
+        const m = Math.floor(rem / 60000);
+        const s = Math.floor((rem % 60000) / 1000);
+        setR2Timer(`${m}:${s.toString().padStart(2, '0')}`);
+      }
+      if (game.phaseEndsAt && game.phase !== GAME_PHASE.ROUND_2_ACTIVE) {
+        const rem2 = Math.max(0, new Date(game.phaseEndsAt).getTime() - Date.now());
+        setPhaseTimer(`${Math.floor(rem2 / 1000)}s`);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [game.round2EndsAt, game.phaseEndsAt, game.phase]);
+
+  async function handleStartTransition() {
+    setIsTransitioning(true);
+    setActionError(null);
+    const res = await gmStartTransition(game.id);
+    setIsTransitioning(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to start transition.');
+      return;
+    }
+    onRefresh();
+  }
+
+  async function handleStartRound2() {
+    setIsStartingR2(true);
+    setActionError(null);
+    const res = await gmStartRound2(game.id);
+    setIsStartingR2(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to start Round 2.');
+      return;
+    }
+    onRefresh();
+  }
+
+  const phase = game.phase;
+  const isTransition = phase === GAME_PHASE.TRANSITION;
+  const isRound2 = phase === GAME_PHASE.ROUND_2_ACTIVE;
+  const isBodyReport = phase === GAME_PHASE.BODY_REPORT;
+  const isMoveToVoting = phase === GAME_PHASE.MOVE_TO_VOTING;
+  const isVoting = phase === GAME_PHASE.VOTING;
+  const isComplete = phase === GAME_PHASE.GAME_COMPLETE;
+
+  const phaseLabel: Record<string, string> = {
+    ROUND_1_COMPLETE: 'Round 1 Complete — Start Transition',
+    TRANSITION: 'Transition (Role Assignment)',
+    ROUND_2_ACTIVE: 'Round 2 Active',
+    BODY_REPORT: 'Body Report Window',
+    MOVE_TO_VOTING: 'Moving to Voting',
+    VOTING: 'Voting in Progress',
+    GAME_COMPLETE: 'Game Complete',
+  };
+
+  const aliveCount = game.players.filter(p => p.status === 'ALIVE').length;
+  const eliminatedCount = game.players.filter(p => p.status === 'ELIMINATED').length;
+
+  return (
+    <div className="max-w-4xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">{game.teamName}</h1>
+          <p className="text-mosaic-muted text-sm mt-1">
+            Phase 3: Deception • <span className="font-mono text-mosaic-accent">{game.gameCode}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+            isComplete ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+            : isRound2 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            : isTransition ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+            : 'bg-red-500/10 text-red-400 border-red-500/30'
+          }`}>
+            {phaseLabel[phase] ?? phase.replace(/_/g, ' ')}
+          </span>
+          <button onClick={onRefresh} className="px-3 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs text-mosaic-muted hover:text-white transition-colors cursor-pointer">
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {actionError && (
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <p className="text-red-400 text-sm">{actionError}</p>
+        </div>
+      )}
+
+      {/* GM Action Controls */}
+      {phase === GAME_PHASE.ROUND_1_COMPLETE && (
+        <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6">
+          <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-yellow-400" /> Start Transition Phase
+          </h2>
+          <p className="text-mosaic-muted text-sm mb-4">
+            This will randomly assign roles (1 Imposter, rest Crewmates) and physical tasks. Each player receives their secret role privately.
+          </p>
+          <button
+            onClick={handleStartTransition}
+            disabled={isTransitioning}
+            className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+          >
+            {isTransitioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-black" />}
+            Begin Transition
+          </button>
+        </div>
+      )}
+
+      {isTransition && (
+        <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <Clock className="w-4 h-4 text-yellow-400" /> Transition Timer
+            </h2>
+            <div className="text-2xl font-mono font-bold text-yellow-300">{phaseTimer}</div>
+          </div>
+          <p className="text-mosaic-muted text-sm mb-4">
+            Players are reading their secret roles and task assignments. When ready, manually start Round 2 (or it auto-starts when timer expires).
+          </p>
+          <button
+            onClick={handleStartRound2}
+            disabled={isStartingR2}
+            className="px-6 py-3 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-black font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-lg shadow-mosaic-accent/20"
+          >
+            {isStartingR2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-black" />}
+            START ROUND 2 NOW
+          </button>
+        </div>
+      )}
+
+      {/* Status KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
+          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">R2 Master Timer</p>
+          <p className="text-3xl font-mono font-bold text-white">{r2Timer || '—'}</p>
+          <p className="text-xs text-mosaic-muted mt-1">Continuous</p>
+        </div>
+        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
+          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Kills</p>
+          <p className="text-3xl font-bold text-red-400">{game.killCount ?? 0}<span className="text-mosaic-muted text-xl font-normal">/2</span></p>
+        </div>
+        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
+          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Alive / Dead</p>
+          <p className="text-3xl font-bold text-emerald-400">{aliveCount} <span className="text-mosaic-muted text-xl font-normal">/ {eliminatedCount}</span></p>
+        </div>
+        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
+          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Voting Cycles</p>
+          <p className="text-3xl font-bold text-purple-400">{game.votingCycle ?? 0}</p>
+        </div>
+      </div>
+
+      {/* Phase status card */}
+      {(isBodyReport || isMoveToVoting || isVoting) && (
+        <div className={`bg-mosaic-surface border rounded-2xl p-5 ${
+          isBodyReport ? 'border-red-500/40' : isMoveToVoting ? 'border-yellow-500/40' : 'border-purple-500/40'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-mosaic-muted mb-1">Current Sub-Phase</p>
+              <p className={`text-xl font-bold ${
+                isBodyReport ? 'text-red-300' : isMoveToVoting ? 'text-yellow-300' : 'text-purple-300'
+              }`}>
+                {isBodyReport ? 'Body Report Window' : isMoveToVoting ? 'Move to Voting' : 'Voting'}
+              </p>
+            </div>
+            <div className={`text-3xl font-mono font-bold ${
+              isBodyReport ? 'text-red-400' : isMoveToVoting ? 'text-yellow-400' : 'text-purple-400'
+            }`}>
+              {phaseTimer}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Result card */}
+      {isComplete && (
+        <div className="bg-mosaic-surface border border-emerald-500/30 rounded-2xl p-6 text-center">
+          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+          <h2 className="text-2xl font-bold text-white mb-1">Game Complete!</h2>
+          <p className={`text-lg font-semibold ${
+            game.result === 'CREWMATES_WIN' ? 'text-emerald-400'
+            : game.result?.includes('IMPOSTER') ? 'text-red-400'
+            : 'text-mosaic-muted'
+          }`}>
+            {game.result?.replace(/_/g, ' ') ?? 'Game ended'}
+          </p>
+        </div>
+      )}
+
+      {/* Players with roles */}
+      <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
+        <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-mosaic-accent" /> Players (Roles visible to GM only)
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {game.players.map(p => (
+            <div key={p.id} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
+              p.status === 'ELIMINATED'
+                ? 'bg-red-500/5 border-red-500/20'
+                : p.role === 'IMPOSTER'
+                ? 'bg-red-950/30 border-red-700/40'
+                : 'bg-mosaic-dark border-mosaic-border/50'
+            }`}>
+              <div className="flex items-center gap-2">
+                {p.role === 'IMPOSTER'
+                  ? <Skull className="w-4 h-4 text-red-400" />
+                  : <Shield className="w-4 h-4 text-emerald-400" />
+                }
+                <div>
+                  <p className={`text-sm font-semibold ${p.status === 'ELIMINATED' ? 'line-through text-mosaic-muted' : 'text-white'}`}>
+                    {p.playerName}
+                  </p>
+                  {p.assignedTaskName && (
+                    <p className="text-xs text-mosaic-muted">Zone {p.assignedTaskZone}: {p.assignedTaskName}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  p.role === 'IMPOSTER'
+                    ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                }`}>
+                  {p.role ?? 'Unassigned'}
+                </span>
+                <span className={`text-xs ${
+                  p.status === 'ELIMINATED' ? 'text-red-400' :
+                  p.status === 'ALIVE' ? 'text-emerald-400' : 'text-mosaic-muted'
+                }`}>
+                  {p.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Events */}
+      {game.recentEvents && game.recentEvents.length > 0 && (
+        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
+          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-mosaic-accent" /> Recent Activity
+          </h2>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+            {game.recentEvents.slice().reverse().map((ev) => (
+              <div key={ev._id} className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-lg bg-mosaic-dark/80 border border-mosaic-border/40">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-mosaic-accent font-semibold">{ev.eventType}</span>
+                  <span className="text-mosaic-muted truncate max-w-xs">{ev.eventData ? JSON.stringify(ev.eventData) : ''}</span>
+                </div>
+                <span className="text-mosaic-muted/60 shrink-0 ml-4 font-mono">{new Date(ev.occurredAt).toLocaleTimeString()}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

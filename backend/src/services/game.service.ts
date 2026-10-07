@@ -257,40 +257,48 @@ export async function getGameForPlayer(gameId: string, playerId: string) {
 
   // Sanitize: Player only sees public info, own role, own assigned task/zone
   // NEVER send other players' roles, other players' tasks, or unrevealed vote targets!
-  return {
-    id: game._id,
-    gameCode: game.gameCode,
-    teamName: game.teamName,
-    teamSize: game.teamSize,
-    phase: game.phase,
-    result: game.result,
-    phaseStartedAt: game.phaseStartedAt,
-    phaseEndsAt: game.phaseEndsAt,
-    round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
-    round1EndsAt: game.round1EndsAt || game.phaseEndsAt,
-    round2StartedAt: game.round2StartedAt,
-    round2EndsAt: game.round2EndsAt, // Continuous 7-minute master timer
-    votingCycle: game.votingCycle,
-    votingStatus: {
-      submittedVotesCount,
-      eligibleVotersCount,
-    },
-    puzzleCompleted: game.puzzleCompleted,
-    puzzlePieces: game.puzzlePieces.map((p) => ({
-      pieceIndex: p.pieceIndex,
-      isUnlocked: p.isUnlocked,
-    })),
-    myPlayer: {
-      id: player._id,
-      playerName: player.playerName,
-      lives: player.lives,
-      status: player.status,
-      role: player.role, // Own role only
-      assignedTaskZone: player.assignedTaskZone, // Own task only
-      assignedTaskName: player.assignedTaskName, // Own task only
-      hasVoted,
-      killCount: player.role === PlayerRole.IMPOSTER ? game.killCount : undefined,
-    },
+    const isRound2ActiveOrLater = [
+      GamePhase.ROUND_2_ACTIVE,
+      GamePhase.BODY_REPORT,
+      GamePhase.MOVE_TO_VOTING,
+      GamePhase.VOTING,
+      GamePhase.GAME_COMPLETE,
+    ].includes(game.phase);
+
+    return {
+      id: game._id,
+      gameCode: game.gameCode,
+      teamName: game.teamName,
+      teamSize: game.teamSize,
+      phase: game.phase,
+      result: game.result,
+      phaseStartedAt: game.phaseStartedAt,
+      phaseEndsAt: game.phaseEndsAt,
+      round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
+      round1EndsAt: game.round1EndsAt || game.phaseEndsAt,
+      round2StartedAt: game.round2StartedAt,
+      round2EndsAt: game.round2EndsAt, // Continuous 7-minute master timer
+      votingCycle: game.votingCycle,
+      votingStatus: {
+        submittedVotesCount,
+        eligibleVotersCount,
+      },
+      puzzleCompleted: game.puzzleCompleted,
+      puzzlePieces: game.puzzlePieces.map((p) => ({
+        pieceIndex: p.pieceIndex,
+        isUnlocked: p.isUnlocked,
+      })),
+      myPlayer: {
+        id: player._id,
+        playerName: player.playerName,
+        lives: player.lives,
+        status: player.status,
+        role: isRound2ActiveOrLater ? player.role : null, // Revealed only when Round 2 starts
+        assignedTaskZone: isRound2ActiveOrLater ? player.assignedTaskZone : null,
+        assignedTaskName: isRound2ActiveOrLater ? player.assignedTaskName : null,
+        hasVoted,
+        killCount: (isRound2ActiveOrLater && player.role === PlayerRole.IMPOSTER) ? game.killCount : undefined,
+      },
     teammates: game.players.map((p) => ({
       id: p._id,
       playerName: p.playerName,
@@ -791,6 +799,15 @@ async function startRound2Internal(game: IGame): Promise<IGame> {
     phaseEndsAt: masterEndsAt,
     round2EndsAt: masterEndsAt,
   });
+
+  // Private emit to each player: ONLY their own role and assigned task, NOW that Round 2 begins!
+  for (const player of game.players) {
+    emitToPlayer(String(player._id), SocketEvent.PLAYER_ROLE_ASSIGNED_PRIVATE, {
+      role: player.role,
+      assignedTaskZone: player.assignedTaskZone,
+      assignedTaskName: player.assignedTaskName,
+    });
+  }
 
   return game;
 }
@@ -1440,14 +1457,8 @@ export async function startTransition(gameId: string): Promise<IGame> {
     phaseEndsAt: transitionEndsAt,
   });
 
-  // 2. Private emit to each player: ONLY their own role and assigned task
-  for (const player of game.players) {
-    emitToPlayer(String(player._id), SocketEvent.PLAYER_ROLE_ASSIGNED_PRIVATE, {
-      role: player.role,
-      assignedTaskZone: player.assignedTaskZone,
-      assignedTaskName: player.assignedTaskName,
-    });
-  }
+  // 2. Roles/tasks remain strictly secret server-side during TRANSITION!
+  // Players receive their private role/task ONLY when ROUND_2_ACTIVE begins.
 
   // 3. Emit full state to GM
   emitToGm(String(game._id), SocketEvent.GAME_STATE_UPDATE, {
@@ -1912,10 +1923,59 @@ export async function resolveVotingInternal(game: IGame) {
     // Tie (or 0 votes)
     isTie = true;
     const tieRule = game.configSnapshot?.tieRule ?? TieRule.NO_ELIMINATION;
-
     if (tieRule === TieRule.RANDOM_PICK && topCandidateIds.length > 0) {
       const pickedId = topCandidateIds[Math.floor(Math.random() * topCandidateIds.length)];
       eliminatedPlayer = game.players.id(pickedId);
+    } else if (tieRule === TieRule.REVOTE) {
+      // Re-vote: start a new voting cycle immediately without eliminating anyone
+      const votingDuration = game.configSnapshot?.votingDurationSeconds ?? 15;
+      const votingEndsAt = new Date(now.getTime() + votingDuration * 1000);
+      game.votingCycle = (game.votingCycle || 0) + 1;
+      game.phase = GamePhase.VOTING;
+      game.phaseStartedAt = now;
+      game.phaseEndsAt = votingEndsAt;
+      // Master timer continuous and untouched!
+      game.events.push({
+        eventType: GameEventType.VOTING_STARTED,
+        playerId: null,
+        eventData: { cycle: game.votingCycle, reason: 'REVOTE', endsAt: votingEndsAt },
+        occurredAt: now,
+      } as any);
+      await game.save();
+
+      const tally = Object.entries(voteCounts).map(([pid, count]) => {
+        const pl = game.players.id(pid);
+        return {
+          playerId: pid,
+          playerName: pl?.playerName ?? 'Unknown',
+          voteCount: count,
+        };
+      });
+
+      emitToGame(String(game._id), SocketEvent.VOTING_RESULT, {
+        votingCycle: cycle,
+        tally,
+        eliminatedPlayer: null,
+        isTie: true,
+        gameComplete: false,
+        result: null,
+        nextPhase: GamePhase.VOTING,
+        round2EndsAt: game.round2EndsAt,
+      });
+      emitToGame(String(game._id), SocketEvent.VOTING_STARTED, {
+        votingCycle: game.votingCycle,
+        phaseEndsAt: votingEndsAt,
+        round2EndsAt: game.round2EndsAt,
+      });
+      return {
+        votingCycle: cycle,
+        tally,
+        eliminatedPlayer: null,
+        isTie: true,
+        gameComplete: false,
+        result: null,
+        nextPhase: GamePhase.VOTING,
+      };
     } else {
       // NO_ELIMINATION (default)
       eliminatedPlayer = null;
