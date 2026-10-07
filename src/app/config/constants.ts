@@ -45,10 +45,10 @@ export const GAME_CODE_LENGTH = 4; // chars after prefix
 // ─── Event Application Metadata ──────────────────────────────────────────────
 
 export const APP_CONFIG = {
-  name: 'MOSAIC',
+  name: 'DECEPTION',
   tagline: 'Find the Clues. Complete the Tasks. Trust No One.',
   eventName: 'ADG Technical Event',
-  theme: 'DECEPTION',
+  theme: 'MOSAIC',
   version: '1.0.0',
 } as const;
 

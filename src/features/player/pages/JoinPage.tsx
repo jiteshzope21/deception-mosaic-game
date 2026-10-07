@@ -110,7 +110,7 @@ export default function JoinPage() {
         {/* Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple mb-3 shadow-lg shadow-mosaic-accent/20">
-            <span className="text-white font-bold text-lg">M</span>
+            <span className="text-white font-bold text-lg">D</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">{APP_CONFIG.name}</h1>
           {teamName && (

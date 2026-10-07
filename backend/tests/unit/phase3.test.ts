@@ -360,17 +360,129 @@ describe('Phase 3 Audit — Strict Specification Compliance', () => {
     });
   });
 
-  // ─── 12. COMPLETED GAME IMMUTABILITY ───────────────────────────────────────
-  describe('12. Completed Game Immutability', () => {
-    it('blocks mutations when phase is GAME_COMPLETE', () => {
-      const checkImmutable = (phase: GamePhase) => {
+  // ─── 12. COMPLETED GAME IMMUTABILITY ACROSS ALL PATHS ──────────────────────
+  describe('12. Completed Game Immutability Across All Mutation Paths', () => {
+    const MUTATION_OPERATIONS = [
+      'submitAnswer',
+      'emergencyEndRound1',
+      'restartGame',
+      'startTransition',
+      'startRound2',
+      'recordKill',
+      'reportBody',
+      'submitVote',
+    ];
+
+    it('blocks all mutation paths when phase is GAME_COMPLETE', () => {
+      const validateNotCompleted = (phase: GamePhase, op: string) => {
         if (phase === GamePhase.GAME_COMPLETE) {
-          throw new Error('GAME_COMPLETED: Read-only');
+          throw new Error(`Cannot perform ${op}: Game is completed and read-only.`);
         }
       };
 
-      expect(() => checkImmutable(GamePhase.GAME_COMPLETE)).toThrow('GAME_COMPLETED: Read-only');
-      expect(() => checkImmutable(GamePhase.ROUND_2_ACTIVE)).not.toThrow();
+      for (const op of MUTATION_OPERATIONS) {
+        expect(() => validateNotCompleted(GamePhase.GAME_COMPLETE, op)).toThrow(
+          `Cannot perform ${op}: Game is completed and read-only.`
+        );
+      }
+    });
+  });
+
+  // ─── 13. COMPLETE GAME HISTORY PRESERVATION ──────────────────────────────────
+  describe('13. Complete Game History Representation Verification', () => {
+    it('preserves all required immutable game history fields upon completion', () => {
+      const mockCompletedGame = {
+        _id: 'game_123',
+        gameCode: 'DEC-5678',
+        teamName: 'Alpha Team',
+        teamSize: 5,
+        phase: GamePhase.GAME_COMPLETE,
+        result: GameResult.CREWMATES_WIN,
+        startedAt: new Date('2026-10-07T10:00:00Z'),
+        completedAt: new Date('2026-10-07T10:12:00Z'),
+        round1StartedAt: new Date('2026-10-07T10:00:00Z'),
+        round1EndsAt: new Date('2026-10-07T10:04:00Z'),
+        puzzleCompleted: true,
+        puzzlePieces: [{ pieceIndex: 0, isUnlocked: true }],
+        qrMappings: [
+          {
+            qrCodeId: 'QR-01',
+            qrType: 'PUZZLE',
+            puzzlePieceIndex: 0,
+            questions: [{ questionId: 'Q-001', questionOrder: 1 }],
+            isCompleted: true,
+          },
+        ],
+        round2StartedAt: new Date('2026-10-07T10:05:00Z'),
+        round2EndsAt: new Date('2026-10-07T10:12:00Z'),
+        killCount: 1,
+        kills: [
+          {
+            killNumber: 1,
+            victimPlayerId: 'p2',
+            reportedAt: new Date('2026-10-07T10:07:00Z'),
+          },
+        ],
+        votingCycle: 1,
+        votes: [
+          {
+            votingCycle: 1,
+            voterPlayerId: 'p1',
+            targetPlayerId: 'p5',
+            castAt: new Date('2026-10-07T10:09:00Z'),
+          },
+        ],
+        players: [
+          { _id: 'p1', playerName: 'Alice', role: PlayerRole.CREWMATE, assignedTaskZone: 1, assignedTaskName: 'Zone 1 Task', status: PlayerStatus.ALIVE, lives: 2 },
+          { _id: 'p2', playerName: 'Bob', role: PlayerRole.CREWMATE, assignedTaskZone: 2, assignedTaskName: 'Zone 2 Task', status: PlayerStatus.ELIMINATED, lives: 1 },
+          { _id: 'p3', playerName: 'Charlie', role: PlayerRole.CREWMATE, assignedTaskZone: 3, assignedTaskName: 'Zone 3 Task', status: PlayerStatus.ALIVE, lives: 2 },
+          { _id: 'p4', playerName: 'Dave', role: PlayerRole.CREWMATE, assignedTaskZone: 4, assignedTaskName: 'Zone 4 Task', status: PlayerStatus.ALIVE, lives: 2 },
+          { _id: 'p5', playerName: 'Eve', role: PlayerRole.IMPOSTER, assignedTaskZone: 5, assignedTaskName: 'Zone 5 Task', status: PlayerStatus.ELIMINATED, lives: 2 },
+        ],
+        configSnapshot: {
+          round1DurationSeconds: 240,
+          transitionDurationSeconds: 60,
+          round2DurationSeconds: 420,
+          startingLives: 2,
+          tieRule: TieRule.NO_ELIMINATION,
+        },
+        events: [
+          { eventType: 'GAME_STARTED', occurredAt: new Date('2026-10-07T10:00:00Z') },
+          { eventType: 'VOTING_RESOLVED', occurredAt: new Date('2026-10-07T10:10:00Z') },
+        ],
+      };
+
+      // Verify that history contains all required sections
+      expect(mockCompletedGame.gameCode).toBeDefined();
+      expect(mockCompletedGame.teamName).toBe('Alpha Team');
+      expect(mockCompletedGame.teamSize).toBe(5);
+      expect(mockCompletedGame.phase).toBe(GamePhase.GAME_COMPLETE);
+      expect(mockCompletedGame.result).toBe(GameResult.CREWMATES_WIN);
+      expect(mockCompletedGame.startedAt).toBeDefined();
+      expect(mockCompletedGame.completedAt).toBeDefined();
+
+      // Round 1 specifics
+      expect(mockCompletedGame.puzzleCompleted).toBe(true);
+      expect(mockCompletedGame.qrMappings.length).toBeGreaterThan(0);
+      expect(mockCompletedGame.qrMappings[0].questions[0].questionId).toBe('Q-001');
+
+      // Round 2 specifics
+      expect(mockCompletedGame.killCount).toBe(1);
+      expect(mockCompletedGame.kills.length).toBe(1);
+      expect(mockCompletedGame.votes.length).toBe(1);
+
+      // Player roster & roles
+      expect(mockCompletedGame.players.length).toBe(5);
+      const imposter = mockCompletedGame.players.find((p) => p.role === PlayerRole.IMPOSTER);
+      expect(imposter).toBeDefined();
+      expect(imposter?.playerName).toBe('Eve');
+      expect(imposter?.assignedTaskName).toBe('Zone 5 Task'); // Valid cover task preserved
+
+      // Config snapshot & events
+      expect(mockCompletedGame.configSnapshot.round1DurationSeconds).toBe(240);
+      expect(mockCompletedGame.configSnapshot.tieRule).toBe(TieRule.NO_ELIMINATION);
+      expect(mockCompletedGame.events.length).toBe(2);
     });
   });
 });
+

@@ -16,14 +16,14 @@ import {
   Users, Play, Plus, Settings, BookOpen, LogOut,
   CheckCircle, Clock, Loader2, AlertCircle, ChevronRight,
   RotateCcw, AlertTriangle, Trash2, Edit2, X, Filter, Activity, Lock, Puzzle,
-  Shield, Skull
+  Shield, Skull, History, Eye
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthContext';
 import {
   createLobby, getActiveGame, startGame, emergencyEndRound, restartGame,
   listQuestions, createQuestion, updateQuestion, deleteQuestion,
-  gmStartTransition, gmStartRound2,
-  type GmGameStateData, type QuestionBankItem
+  gmStartTransition, gmStartRound2, listGameHistory, getGameHistory,
+  type GmGameStateData, type QuestionBankItem, type GameHistoryEntry
 } from '@/services/gameService';
 import { subscribeToEvent } from '@/lib/socket/socketClient';
 import { SOCKET_EVENT, GAME_PHASE, type AnswerOption } from '@/types/enums';
@@ -268,6 +268,7 @@ export default function GmDashboardPage() {
                   (!PHASE_3_PHASES.includes(activeGame.phase) &&
                     activeGame.phase !== GAME_PHASE.ROUND_1_COMPLETE),
               },
+              { key: 'history', label: 'History', icon: History },
               { key: 'questions', label: 'Question Bank', icon: BookOpen },
             ].map(({ key, label, icon: Icon, disabled }) => (
               <button
@@ -358,6 +359,8 @@ export default function GmDashboardPage() {
           {!isLoadingGame && view === 'round2' && activeGame && (
             <Round2Panel game={activeGame} onRefresh={loadActiveGame} />
           )}
+
+          {!isLoadingGame && view === 'history' && <HistoryPanel />}
 
           {!isLoadingGame && view === 'questions' && <QuestionsPanel />}
         </main>
@@ -1778,6 +1781,305 @@ function QuestionsPanel() {
                 Confirm Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── History Panel ────────────────────────────────────────────────────────────
+
+function HistoryPanel() {
+  const [games, setGames] = useState<GameHistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [detailGame, setDetailGame] = useState<any | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHistory = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await listGameHistory();
+      if (res.success) {
+        setGames(res.data.games ?? (res.data as any));
+      } else {
+        setError(res.error?.message || 'Failed to load game history.');
+      }
+    } catch {
+      setError('Network error loading history.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const handleViewDetail = async (gameId: string) => {
+    setSelectedGameId(gameId);
+    setIsLoadingDetail(true);
+    try {
+      const res = await getGameHistory(gameId);
+      if (res.success) {
+        setDetailGame(res.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <History className="w-5 h-5 text-mosaic-accent" />
+            Game History (Read-Only)
+          </h2>
+          <p className="text-xs text-mosaic-muted mt-1">
+            Archived records of completed event games.
+          </p>
+        </div>
+        <button
+          onClick={fetchHistory}
+          className="px-3 py-1.5 border border-mosaic-border rounded-xl text-xs text-mosaic-muted hover:text-white flex items-center gap-1.5 cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-mosaic-accent" />
+        </div>
+      ) : games.length === 0 ? (
+        <div className="bg-mosaic-surface border border-mosaic-border/40 rounded-2xl p-12 text-center">
+          <History className="w-10 h-10 text-mosaic-muted/40 mx-auto mb-3" />
+          <p className="text-sm text-mosaic-muted font-medium">No completed games yet.</p>
+          <p className="text-xs text-mosaic-muted/60 mt-1">
+            Games will appear here once they reach the GAME_COMPLETE phase.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-mosaic-surface border border-mosaic-border/40 rounded-2xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-mosaic-dark/80 text-mosaic-muted border-b border-mosaic-border/40 uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="px-5 py-3.5">Game Code</th>
+                  <th className="px-5 py-3.5">Team</th>
+                  <th className="px-5 py-3.5">Result</th>
+                  <th className="px-5 py-3.5">Imposter</th>
+                  <th className="px-5 py-3.5">Kills</th>
+                  <th className="px-5 py-3.5">Completed</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-mosaic-border/20 text-white">
+                {games.map((g) => {
+                  const isCrewWon = g.result === 'CREWMATES_WIN';
+                  return (
+                    <tr key={g.gameId} className="hover:bg-mosaic-dark/40 transition-colors">
+                      <td className="px-5 py-4 font-mono font-bold text-mosaic-accent">
+                        {g.gameCode}
+                      </td>
+                      <td className="px-5 py-4 font-medium">
+                        {g.teamName} <span className="text-mosaic-muted font-normal">({g.teamSize}p)</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                            isCrewWon
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}
+                        >
+                          {g.result ?? 'COMPLETE'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-mosaic-muted">
+                        {g.imposterName ? (
+                          <span className="text-red-400 font-semibold">{g.imposterName}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-mono">{g.killCount ?? 0}</span> / 2
+                      </td>
+                      <td className="px-5 py-4 text-mosaic-muted font-mono text-[11px]">
+                        {g.completedAt ? new Date(g.completedAt).toLocaleString() : '—'}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleViewDetail(g.gameId)}
+                          className="px-3 py-1.5 bg-mosaic-dark hover:bg-mosaic-border/40 text-mosaic-accent rounded-lg font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Game Detail Modal */}
+      {selectedGameId && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl p-6">
+            <div className="flex items-center justify-between pb-4 border-b border-mosaic-border/40">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-mosaic-accent/20 text-mosaic-accent font-mono font-bold rounded text-xs">
+                  {detailGame?.gameCode ?? 'ARCHIVE'}
+                </span>
+                <h3 className="text-lg font-bold text-white">
+                  {detailGame?.teamName ?? 'Game Record'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedGameId(null);
+                  setDetailGame(null);
+                }}
+                className="text-mosaic-muted hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isLoadingDetail ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-mosaic-accent" />
+              </div>
+            ) : detailGame ? (
+              <div className="mt-4 space-y-5 text-xs">
+                {/* Result banner */}
+                <div
+                  className={`p-3 rounded-xl border flex items-center justify-between ${
+                    detailGame.result === 'CREWMATES_WIN'
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                      : 'bg-red-500/10 border-red-500/30 text-red-300'
+                  }`}
+                >
+                  <span className="font-bold uppercase tracking-wider">
+                    Result: {detailGame.result}
+                  </span>
+                  <span className="text-[11px] opacity-80">
+                    Archived — Read Only
+                  </span>
+                </div>
+
+                {/* Imposter & Kills */}
+                <div className="bg-mosaic-dark/60 p-4 rounded-xl border border-mosaic-border/30 space-y-2">
+                  <div className="flex justify-between items-center text-white">
+                    <span className="font-semibold text-mosaic-muted uppercase tracking-wider text-[10px]">
+                      Imposter
+                    </span>
+                    <span className="text-red-400 font-bold">
+                      {detailGame.imposter?.playerName ?? 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-white">
+                    <span className="font-semibold text-mosaic-muted uppercase tracking-wider text-[10px]">
+                      Kills Executed
+                    </span>
+                    <span className="font-mono">{detailGame.round2?.killCount ?? 0} / 2</span>
+                  </div>
+                  {detailGame.round2?.kills?.length > 0 && (
+                    <div className="pt-2 border-t border-mosaic-border/20">
+                      <p className="text-mosaic-muted text-[10px] uppercase font-bold mb-1">Victims:</p>
+                      <ul className="space-y-1 text-mosaic-muted">
+                        {detailGame.round2.kills.map((k: any, i: number) => (
+                          <li key={i} className="flex justify-between">
+                            <span>Kill #{k.killNumber}: {k.victimPlayerName}</span>
+                            <span className="font-mono text-[10px]">
+                              {k.reportedAt ? new Date(k.reportedAt).toLocaleTimeString() : 'Not reported'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Players & Task Assignments */}
+                <div>
+                  <h4 className="font-bold text-white mb-2 uppercase text-[10px] tracking-wider text-mosaic-muted">
+                    Player Roster & Task Assignments
+                  </h4>
+                  <div className="space-y-1.5">
+                    {detailGame.players?.map((p: any) => (
+                      <div
+                        key={p.id}
+                        className="bg-mosaic-dark/40 border border-mosaic-border/20 rounded-lg p-2.5 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-white">{p.playerName}</span>
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                p.role === 'IMPOSTER'
+                                  ? 'bg-red-500/20 text-red-400'
+                                  : 'bg-blue-500/20 text-blue-400'
+                              }`}
+                            >
+                              {p.role}
+                            </span>
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded ${
+                                p.status === 'ALIVE'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-neutral-500/20 text-neutral-400 line-through'
+                              }`}
+                            >
+                              {p.status}
+                            </span>
+                          </div>
+                          {p.assignedTaskName && (
+                            <p className="text-[10px] text-mosaic-muted mt-0.5">
+                              Zone {p.assignedTaskZone}: {p.assignedTaskName}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-mono text-mosaic-muted text-[10px]">
+                          Lives: {p.lives}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Round 1 Summary */}
+                <div className="bg-mosaic-dark/30 p-3 rounded-xl border border-mosaic-border/20 flex justify-between items-center text-mosaic-muted">
+                  <span>Round 1 Puzzle Status</span>
+                  <span className={detailGame.round1?.puzzleCompleted ? 'text-green-400 font-bold' : 'text-mosaic-muted'}>
+                    {detailGame.round1?.puzzleCompleted ? 'Completed' : 'Incomplete'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-mosaic-muted py-8">Unable to load details.</p>
+            )}
           </div>
         </div>
       )}

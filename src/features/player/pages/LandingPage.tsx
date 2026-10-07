@@ -56,7 +56,7 @@ export default function LandingPage() {
         {/* Logo */}
         <div className="mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple shadow-2xl shadow-mosaic-accent/30 mb-6">
-            <span className="text-white font-bold text-3xl">M</span>
+            <span className="text-white font-bold text-3xl">D</span>
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{APP_CONFIG.name}</h1>
           <p className="text-mosaic-accent text-sm font-medium uppercase tracking-widest mb-2">

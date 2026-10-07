@@ -2133,6 +2133,7 @@ export async function getGameHistory(gameId: string) {
       endsAt: game.round1EndsAt,
       puzzleCompleted: game.puzzleCompleted,
       puzzlePieces: game.puzzlePieces,
+      qrMappings: game.qrMappings,
     },
     round2: {
       startedAt: game.round2StartedAt,
@@ -2149,6 +2150,18 @@ export async function getGameHistory(gameId: string) {
       }),
       votingCycles: game.votingCycle,
       votesCount: game.votes.length,
+      votes: game.votes.map((v) => {
+        const voter = game.players.id(v.voterPlayerId);
+        const target = game.players.id(v.targetPlayerId);
+        return {
+          votingCycle: v.votingCycle,
+          voterPlayerId: v.voterPlayerId,
+          voterPlayerName: voter?.playerName ?? 'Unknown',
+          targetPlayerId: v.targetPlayerId,
+          targetPlayerName: target?.playerName ?? 'Unknown',
+          castAt: v.castAt,
+        };
+      }),
     },
     imposter: imposter
       ? { id: imposter._id, playerName: imposter.playerName }
@@ -2164,6 +2177,7 @@ export async function getGameHistory(gameId: string) {
     })),
     configSnapshot: game.configSnapshot,
     eventsCount: game.events.length,
+    events: game.events,
   };
 }
 
