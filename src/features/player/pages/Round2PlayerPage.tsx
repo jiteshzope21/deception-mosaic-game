@@ -29,9 +29,13 @@ import { SOCKET_EVENT } from '@/types/enums';
 
 // ─── Countdown hook ───────────────────────────────────────────────────────────
 
-function useCountdown(endsAt: string | null | undefined) {
+function useCountdown(endsAt: string | null | undefined, isPaused?: boolean, pausedMs?: number | null) {
   const [secsLeft, setSecsLeft] = useState<number>(0);
   useEffect(() => {
+    if (isPaused && typeof pausedMs === 'number') {
+      setSecsLeft(Math.max(0, Math.round(pausedMs / 1000)));
+      return;
+    }
     if (!endsAt) return;
     const update = () => {
       const diff = Math.max(0, Math.round((new Date(endsAt).getTime() - Date.now()) / 1000));
@@ -40,11 +44,9 @@ function useCountdown(endsAt: string | null | undefined) {
     update();
     const id = setInterval(update, 500);
     return () => clearInterval(id);
-  }, [endsAt]);
+  }, [endsAt, isPaused, pausedMs]);
   return secsLeft;
 }
-
-
 
 // ─── Phase overlays ───────────────────────────────────────────────────────────
 
@@ -59,7 +61,7 @@ interface OverlayProps {
 }
 
 function BodyReportOverlay({ state, onReportBody, reportLoading }: Pick<OverlayProps, 'state' | 'onReportBody' | 'reportLoading'>) {
-  const secsLeft = useCountdown(state.phaseEndsAt);
+  const secsLeft = useCountdown(state.phaseEndsAt, state.isPaused, state.pausedRemainingMs);
   const hasReported = state.hasReportedBody || state.myPlayer.status === 'ELIMINATED';
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -73,8 +75,8 @@ function BodyReportOverlay({ state, onReportBody, reportLoading }: Pick<OverlayP
         {!hasReported && (
           <button
             onClick={onReportBody}
-            disabled={reportLoading}
-            className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={reportLoading || state.isPaused}
+            className="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             {reportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
             Report Body
@@ -89,7 +91,7 @@ function BodyReportOverlay({ state, onReportBody, reportLoading }: Pick<OverlayP
 }
 
 function MovingOverlay({ state }: { state: PlayerGameStateData }) {
-  const secsLeft = useCountdown(state.phaseEndsAt);
+  const secsLeft = useCountdown(state.phaseEndsAt, state.isPaused, state.pausedRemainingMs);
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-mosaic-surface border border-yellow-500/60 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl shadow-yellow-900/20">
@@ -107,7 +109,7 @@ function MovingOverlay({ state }: { state: PlayerGameStateData }) {
 }
 
 function VotingOverlay({ state, onVote, voteLoading, votedFor, voteCount }: Pick<OverlayProps, 'state' | 'onVote' | 'voteLoading' | 'votedFor' | 'voteCount'>) {
-  const secsLeft = useCountdown(state.phaseEndsAt);
+  const secsLeft = useCountdown(state.phaseEndsAt, state.isPaused, state.pausedRemainingMs);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const alivePlayers = (state.alivePlayers ?? state.teammates.filter(t => t.status === 'ALIVE')).filter(
@@ -267,7 +269,7 @@ export default function Round2PlayerPage() {
   const [error, setError] = useState<string | null>(null);
   const clientActionIdRef = useRef(0);
 
-  const masterSecsLeft = useCountdown(state?.round2EndsAt);
+  const masterSecsLeft = useCountdown(state?.round2EndsAt, state?.isPaused, state?.pausedRound2RemainingMs);
 
   const loadState = useCallback(async () => {
     if (!gameId) return;
@@ -322,6 +324,23 @@ export default function Round2PlayerPage() {
     return unsub;
   }, [navigate]);
 
+  // Pause / Resume / Reset / Terminate socket events
+  useEffect(() => {
+    const unsubPaused = subscribeToEvent(SOCKET_EVENT.GAME_PAUSED, () => void loadState());
+    const unsubResumed = subscribeToEvent(SOCKET_EVENT.GAME_RESUMED, () => void loadState());
+    const unsubReset = subscribeToEvent(SOCKET_EVENT.ROUND_RESET, () => void loadState());
+    const unsubTerminated = subscribeToEvent(SOCKET_EVENT.ROUND_TERMINATED, () => {
+      navigate('/player/complete', { replace: true });
+    });
+
+    return () => {
+      unsubPaused();
+      unsubResumed();
+      unsubReset();
+      unsubTerminated();
+    };
+  }, [loadState, navigate]);
+
   // Refresh on kill/status change
   useEffect(() => {
     const unsub = subscribeToEvent(SOCKET_EVENT.PLAYER_STATUS_CHANGED, () => void loadState());
@@ -329,7 +348,7 @@ export default function Round2PlayerPage() {
   }, [loadState]);
 
   const handleKill = useCallback(async (victimId: string) => {
-    if (!gameId) return;
+    if (!gameId || state?.isPaused) return;
     setKillLoading(true);
     setError(null);
     const cid = `kill-${++clientActionIdRef.current}-${Date.now()}`;
@@ -340,10 +359,10 @@ export default function Round2PlayerPage() {
       void loadState();
     }
     setKillLoading(false);
-  }, [gameId, loadState]);
+  }, [gameId, loadState, state?.isPaused]);
 
   const handleReportBody = useCallback(async () => {
-    if (!gameId) return;
+    if (!gameId || state?.isPaused) return;
     setReportLoading(true);
     setError(null);
     const cid = `report-${++clientActionIdRef.current}-${Date.now()}`;
@@ -354,10 +373,10 @@ export default function Round2PlayerPage() {
       void loadState();
     }
     setReportLoading(false);
-  }, [gameId, loadState]);
+  }, [gameId, loadState, state?.isPaused]);
 
   const handleVote = useCallback(async (targetId: string) => {
-    if (!gameId) return;
+    if (!gameId || state?.isPaused) return;
     setVoteLoading(true);
     setError(null);
     const cid = `vote-${++clientActionIdRef.current}-${Date.now()}`;
@@ -371,7 +390,7 @@ export default function Round2PlayerPage() {
       }
     }
     setVoteLoading(false);
-  }, [gameId]);
+  }, [gameId, state?.isPaused]);
 
   if (loading) {
     return (
@@ -443,6 +462,18 @@ export default function Round2PlayerPage() {
           )}
         </div>
       </div>
+
+      {/* Paused Banner */}
+      {state.isPaused && (
+        <div className="bg-yellow-500/20 border-b border-yellow-500/40 p-3 text-center text-yellow-300">
+          <p className="text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 animate-pulse">
+            <span>⏸</span> Round 2 Paused by Game Master
+          </p>
+          <p className="text-[11px] text-yellow-300/80 mt-0.5">
+            Timers and gameplay actions (kills, reports, votes) are authoritatively frozen.
+          </p>
+        </div>
+      )}
 
       {/* Master Timer */}
       <div className={`p-5 text-center ${masterSecsLeft <= 60 ? 'bg-red-950/20' : 'bg-mosaic-surface/30'}`}>

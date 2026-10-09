@@ -289,6 +289,13 @@ export interface IGame extends Document {
   round2StartedAt: Date | null;
   round2EndsAt: Date | null;
 
+  // Pause & Revision state
+  isPaused: boolean;
+  pausedAt: Date | null;
+  pausedRemainingMs: number | null;
+  pausedRound2RemainingMs: number | null;
+  roundRevision: number;
+
   // Players (5 or 6)
   players: Types.DocumentArray<IGamePlayer>;
 
@@ -365,6 +372,11 @@ const gameSchema = new Schema<IGame>(
     round1EndsAt: { type: Date, default: null },
     round2StartedAt: { type: Date, default: null },
     round2EndsAt: { type: Date, default: null },
+    isPaused: { type: Boolean, default: false },
+    pausedAt: { type: Date, default: null },
+    pausedRemainingMs: { type: Number, default: null },
+    pausedRound2RemainingMs: { type: Number, default: null },
+    roundRevision: { type: Number, default: 1 },
     players: [gamePlayerSchema],
     qrMappings: [qrMappingSchema],
     qrMappingsLockedAt: { type: Date, default: null },

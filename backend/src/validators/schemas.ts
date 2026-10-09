@@ -64,6 +64,7 @@ export const gameConfigSchema = z.object({
   tieRule: z.enum([TieRule.NO_ELIMINATION, TieRule.REVOTE, TieRule.RANDOM_PICK]).optional(),
   minQuestionsPerQr: z.number().int().min(1).max(2).optional(),
   maxQuestionsPerQr: z.number().int().min(1).max(2).optional(),
+  puzzleImagePath: z.string().nullable().optional(),
 }).refine(
   (d) => {
     if (d.minQuestionsPerQr !== undefined && d.maxQuestionsPerQr !== undefined) {
@@ -77,7 +78,7 @@ export const gameConfigSchema = z.object({
 // ─── Question ─────────────────────────────────────────────────────────────────
 
 export const questionSchema = z.object({
-  questionId: z.string().regex(/^Q-\d{3}$/, 'Question ID must be Q-001 to Q-050'),
+  questionId: z.string().regex(/^Q-\d{3}$/, 'Question ID must be Q-001 to Q-050').optional(),
   category: z.string().min(1).max(50).trim(),
   questionText: z.string().min(5).max(1000).trim(),
   optionA: z.string().min(1).max(300).trim(),
@@ -102,6 +103,16 @@ export const decoyMessageSchema = z.object({
       { message: `Decoy message MUST contain: "${GAME_CONSTANTS.REQUIRED_DECOY_PHRASE}"` }
     ),
   imagePath: z.string().nullable().optional().default(null),
+  isActive: z.boolean().optional().default(true),
+});
+
+// ─── Physical Task ────────────────────────────────────────────────────────────
+
+export const physicalTaskSchema = z.object({
+  zoneNumber: z.number().int().min(1).max(6),
+  taskName: z.string().min(1).max(100).trim(),
+  description: z.string().max(500).trim().nullable().optional(),
+  instructions: z.string().max(1000).trim().nullable().optional(),
   isActive: z.boolean().optional().default(true),
 });
 

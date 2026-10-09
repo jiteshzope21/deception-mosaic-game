@@ -16,19 +16,21 @@ import {
   Users, Play, Plus, Settings, BookOpen, LogOut,
   CheckCircle, Clock, Loader2, AlertCircle, ChevronRight,
   RotateCcw, AlertTriangle, Trash2, Edit2, X, Filter, Activity, Lock, Puzzle,
-  Shield, Skull, History, Eye
+  Shield, Skull, History, Eye, Pause, PlayCircle, StopCircle
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthContext';
 import {
   createLobby, getActiveGame, startGame, emergencyEndRound, restartGame,
+  pauseGame, resumeGame, resetRound1, resetRound2, terminateRound1, terminateRound2,
   listQuestions, createQuestion, updateQuestion, deleteQuestion,
   gmStartTransition, gmStartRound2, listGameHistory, getGameHistory,
   type GmGameStateData, type QuestionBankItem, type GameHistoryEntry
 } from '@/services/gameService';
 import { subscribeToEvent } from '@/lib/socket/socketClient';
 import { SOCKET_EVENT, GAME_PHASE, type AnswerOption } from '@/types/enums';
+import GameConfigurationPanel from '../components/GameConfigurationPanel';
 
-type DashboardView = 'overview' | 'create' | 'lobby' | 'round1' | 'round2' | 'history' | 'questions';
+type DashboardView = 'overview' | 'config' | 'create' | 'lobby' | 'round1' | 'round2' | 'history' | 'questions';
 
 const PHASE_3_PHASES = [
   GAME_PHASE.TRANSITION,
@@ -148,14 +150,44 @@ export default function GmDashboardPage() {
       }
     });
 
+    const unsubPaused = subscribeToEvent<any>(SOCKET_EVENT.GAME_PAUSED, (data) => {
+      setActiveGame((g) => g ? {
+        ...g,
+        isPaused: true,
+        pausedRemainingMs: data.pausedRemainingMs,
+        pausedRound2RemainingMs: data.pausedRound2RemainingMs,
+      } : g);
+    });
+
+    const unsubResumed = subscribeToEvent<any>(SOCKET_EVENT.GAME_RESUMED, (data) => {
+      setActiveGame((g) => g ? {
+        ...g,
+        isPaused: false,
+        phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+        round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+      } : g);
+    });
+
+    const unsubReset = subscribeToEvent<any>(SOCKET_EVENT.ROUND_RESET, () => {
+      void loadActiveGame();
+    });
+
+    const unsubTerminated = subscribeToEvent<any>(SOCKET_EVENT.ROUND_TERMINATED, () => {
+      void loadActiveGame();
+    });
+
     return () => {
       unsubLobby();
       unsubStarted();
       unsubPhase();
       unsubPuzzle();
       unsubLives();
+      unsubPaused();
+      unsubResumed();
+      unsubReset();
+      unsubTerminated();
     };
-  }, []);
+  }, [loadActiveGame]);
 
   function handleTeamSizeChange(size: 5 | 6) {
     setTeamSize(size);
@@ -242,7 +274,8 @@ export default function GmDashboardPage() {
 
           <nav className="flex-1 p-4 space-y-1">
             {[
-              { key: 'overview', label: 'Overview', icon: Settings },
+              { key: 'overview', label: 'Overview', icon: Activity },
+              { key: 'config', label: 'Game Configuration', icon: Settings },
               { key: 'create', label: 'Create Game', icon: Plus },
               {
                 key: 'lobby',
@@ -323,6 +356,10 @@ export default function GmDashboardPage() {
               onCreateGame={() => setView('create')}
               onManageGame={() => setView(activeGame?.phase === GAME_PHASE.LOBBY ? 'lobby' : 'round1')}
             />
+          )}
+
+          {!isLoadingGame && view === 'config' && (
+            <GameConfigurationPanel />
           )}
 
           {!isLoadingGame && view === 'create' && (
@@ -664,10 +701,20 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
   const [isCritical, setIsCritical] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showRestartModal, setShowRestartModal] = useState(false);
+  const [showResetR1Modal, setShowResetR1Modal] = useState(false);
+  const [showTerminateR1Modal, setShowTerminateR1Modal] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (game.isPaused && game.pausedRemainingMs !== undefined && game.pausedRemainingMs !== null) {
+      const rem = Math.max(0, game.pausedRemainingMs);
+      const m = Math.floor(rem / 60000);
+      const s = Math.floor((rem % 60000) / 1000);
+      setTimer(`${m}:${s.toString().padStart(2, '0')}`);
+      setIsCritical(rem < 60000);
+      return;
+    }
     if (!game.phaseEndsAt) return;
     const tick = () => {
       const rem = Math.max(0, new Date(game.phaseEndsAt!).getTime() - Date.now());
@@ -679,12 +726,50 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [game.phaseEndsAt]);
+  }, [game.phaseEndsAt, game.isPaused, game.pausedRemainingMs]);
 
   const puzzleUnlocked = game.puzzlePieces.filter((p) => p.isUnlocked).length;
   const totalPieces = game.puzzlePieces.length;
   const puzzlePct = totalPieces > 0 ? (puzzleUnlocked / totalPieces) * 100 : 0;
   const isComplete = game.phase === GAME_PHASE.ROUND_1_COMPLETE;
+
+  async function handleTogglePause() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = game.isPaused ? await resumeGame(game.id) : await pauseGame(game.id);
+    setIsActionLoading(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to toggle pause.');
+      return;
+    }
+    onRefresh();
+  }
+
+  async function handleResetRound1() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = await resetRound1(game.id);
+    setIsActionLoading(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to reset Round 1.');
+      return;
+    }
+    setShowResetR1Modal(false);
+    onRefresh();
+  }
+
+  async function handleTerminateRound1() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = await terminateRound1(game.id);
+    setIsActionLoading(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to terminate Round 1.');
+      return;
+    }
+    setShowTerminateR1Modal(false);
+    onRefresh();
+  }
 
   async function handleEmergencyEnd() {
     setIsActionLoading(true);
@@ -727,7 +812,7 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
   return (
     <div className="max-w-5xl space-y-6">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-white">{game.teamName}</h1>
@@ -735,33 +820,56 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
               className={`px-3 py-1 text-xs font-semibold rounded-full border ${
                 isComplete
                   ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                  : game.isPaused
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40'
                   : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               }`}
             >
-              {isComplete ? 'ROUND 1 COMPLETE' : 'PUZZLE SOLVING ACTIVE'}
+              {isComplete ? 'ROUND 1 COMPLETE' : game.isPaused ? 'ROUND 1 PAUSED' : 'PUZZLE SOLVING ACTIVE'}
             </span>
           </div>
           <p className="text-mosaic-muted text-sm mt-1">
             Round 1: Puzzle Solving • Code: <span className="font-mono text-mosaic-accent font-semibold">{game.gameCode}</span>
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Round Control Action Bar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {!isComplete && (
+            <button
+              onClick={handleTogglePause}
+              disabled={isActionLoading}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                game.isPaused
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30'
+                  : 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+              }`}
+            >
+              {game.isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
+              {game.isPaused ? 'Resume Round 1' : 'Pause Round 1'}
+            </button>
+          )}
+
           <button
-            onClick={() => setShowRestartModal(true)}
+            onClick={() => setShowResetR1Modal(true)}
+            disabled={isActionLoading}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs font-medium text-mosaic-muted hover:text-white transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Restart Round 1
+            Reset Round 1
           </button>
+
           {!isComplete && (
             <button
-              onClick={() => setShowEndModal(true)}
+              onClick={() => setShowTerminateR1Modal(true)}
+              disabled={isActionLoading}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Emergency End Round
+              <StopCircle className="w-3.5 h-3.5" />
+              Terminate Round 1
             </button>
           )}
+
           <button
             onClick={onRefresh}
             className="px-3.5 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs font-medium text-mosaic-muted hover:text-white transition-colors cursor-pointer"
@@ -770,6 +878,25 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
           </button>
         </div>
       </div>
+
+      {/* Paused Alert Banner */}
+      {game.isPaused && (
+        <div className="p-4 bg-amber-500/15 border border-amber-500/40 rounded-2xl flex items-center justify-between gap-4 text-amber-300">
+          <div className="flex items-center gap-3">
+            <Pause className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-sm text-white">ROUND 1 IS CURRENTLY PAUSED</p>
+              <p className="text-xs text-amber-300/80">Authoritative server timer is frozen. Player scanning and answering are rejected until resumed.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleTogglePause}
+            className="px-4 py-2 bg-amber-500 text-black font-bold text-xs rounded-xl hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+          >
+            Resume Now
+          </button>
+        </div>
+      )}
 
       {actionError && (
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
@@ -1084,6 +1211,73 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
           </div>
         </div>
       )}
+      {/* Confirmation Modal: Reset Round 1 */}
+      {showResetR1Modal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-yellow-400">
+              <RotateCcw className="w-6 h-6" />
+              <h3 className="text-lg font-bold text-white">Reset Round 1?</h3>
+            </div>
+            <p className="text-mosaic-muted text-sm leading-relaxed">
+              This resets Round 1 specific state: the master timer restarts to the configured duration (4 minutes), player lives are restored to starting lives, and unlocked puzzle pieces are locked again. Round 2 state, configuration snapshots, and connected players remain unchanged.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => setShowResetR1Modal(false)}
+                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleResetRound1}
+                className="px-4 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Reset Round 1
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Terminate Round 1 */}
+      {showTerminateR1Modal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-mosaic-surface border border-red-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <StopCircle className="w-6 h-6" />
+              <h3 className="text-lg font-bold text-white">Terminate Round 1?</h3>
+            </div>
+            <p className="text-mosaic-muted text-sm leading-relaxed">
+              This will immediately stop Round 1, stop its timers, mark Round 1 complete, and reject any further answer attempts.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => setShowTerminateR1Modal(false)}
+                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleTerminateRound1}
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Terminate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1096,9 +1290,26 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
   const [actionError, setActionError] = useState<string | null>(null);
   const [r2Timer, setR2Timer] = useState('');
   const [phaseTimer, setPhaseTimer] = useState('');
+  const [showResetR2Modal, setShowResetR2Modal] = useState(false);
+  const [showTerminateR2Modal, setShowTerminateR2Modal] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   useEffect(() => {
     const tick = () => {
+      if (game.isPaused) {
+        if (typeof game.pausedRound2RemainingMs === 'number') {
+          const rem = Math.max(0, game.pausedRound2RemainingMs);
+          const m = Math.floor(rem / 60000);
+          const s = Math.floor((rem % 60000) / 1000);
+          setR2Timer(`${m}:${s.toString().padStart(2, '0')}`);
+        }
+        if (typeof game.pausedRemainingMs === 'number') {
+          const rem2 = Math.max(0, game.pausedRemainingMs);
+          setPhaseTimer(`${Math.floor(rem2 / 1000)}s`);
+        }
+        return;
+      }
+
       if (game.round2EndsAt) {
         const rem = Math.max(0, new Date(game.round2EndsAt).getTime() - Date.now());
         const m = Math.floor(rem / 60000);
@@ -1113,7 +1324,7 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [game.round2EndsAt, game.phaseEndsAt, game.phase]);
+  }, [game.round2EndsAt, game.phaseEndsAt, game.phase, game.isPaused, game.pausedRound2RemainingMs, game.pausedRemainingMs]);
 
   async function handleStartTransition() {
     setIsTransitioning(true);
@@ -1134,6 +1345,44 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
     setIsStartingR2(false);
     if (!res.success) {
       setActionError(res.error?.message || 'Failed to start Round 2.');
+      return;
+    }
+    onRefresh();
+  }
+
+  async function handleTogglePauseR2() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = game.isPaused ? await resumeGame(game.id) : await pauseGame(game.id);
+    setIsActionLoading(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to toggle pause state.');
+      return;
+    }
+    onRefresh();
+  }
+
+  async function handleResetRound2() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = await resetRound2(game.id);
+    setIsActionLoading(false);
+    setShowResetR2Modal(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to reset Round 2.');
+      return;
+    }
+    onRefresh();
+  }
+
+  async function handleTerminateRound2() {
+    setIsActionLoading(true);
+    setActionError(null);
+    const res = await terminateRound2(game.id);
+    setIsActionLoading(false);
+    setShowTerminateR2Modal(false);
+    if (!res.success) {
+      setActionError(res.error?.message || 'Failed to terminate Round 2.');
       return;
     }
     onRefresh();
@@ -1188,6 +1437,74 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
           <p className="text-red-400 text-sm">{actionError}</p>
+        </div>
+      )}
+
+      {/* Paused Banner */}
+      {game.isPaused && (
+        <div className="p-4 bg-yellow-500/15 border border-yellow-500/40 rounded-2xl flex items-center justify-between gap-3 text-yellow-300">
+          <div className="flex items-center gap-3">
+            <Pause className="w-6 h-6 shrink-0 text-yellow-400 animate-pulse" />
+            <div>
+              <p className="font-bold text-sm tracking-wide">ROUND 2 PAUSED BY GAME MASTER</p>
+              <p className="text-xs text-yellow-300/80">
+                All timers are authoritatively frozen on the server. Player actions (kills, reports, votes) are blocked until resumed.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleTogglePauseR2}
+            disabled={isActionLoading}
+            className="px-4 py-2 bg-yellow-400 text-black font-bold text-xs rounded-xl hover:bg-yellow-300 transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
+            Resume Game
+          </button>
+        </div>
+      )}
+
+      {/* GM Round 2 Controls Bar (Pause, Reset Round 2, Terminate Round 2) */}
+      {!isComplete && phase !== GAME_PHASE.ROUND_1_COMPLETE && (
+        <div className="bg-mosaic-surface/90 border border-mosaic-border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-mosaic-accent" />
+            <span className="text-xs font-semibold text-white uppercase tracking-wider">Round 2 Control Center</span>
+            {game.roundRevision ? (
+              <span className="text-[10px] bg-mosaic-dark px-2 py-0.5 rounded font-mono text-mosaic-muted">
+                rev #{game.roundRevision}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTogglePauseR2}
+              disabled={isActionLoading}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                game.isPaused
+                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40 hover:bg-yellow-500/30'
+                  : 'bg-mosaic-dark text-mosaic-muted border-mosaic-border hover:text-white'
+              }`}
+            >
+              {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : game.isPaused ? <PlayCircle className="w-3.5 h-3.5 text-yellow-400" /> : <Pause className="w-3.5 h-3.5" />}
+              {game.isPaused ? 'Resume Round 2' : 'Pause Round 2'}
+            </button>
+            <button
+              onClick={() => setShowResetR2Modal(true)}
+              disabled={isActionLoading}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-yellow-500/30 text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Round 2
+            </button>
+            <button
+              onClick={() => setShowTerminateR2Modal(true)}
+              disabled={isActionLoading}
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <StopCircle className="w-3.5 h-3.5" />
+              Terminate Round 2
+            </button>
+          </div>
         </div>
       )}
 
@@ -1356,6 +1673,74 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
                 <span className="text-mosaic-muted/60 shrink-0 ml-4 font-mono">{new Date(ev.occurredAt).toLocaleTimeString()}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Reset Round 2 */}
+      {showResetR2Modal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-yellow-400">
+              <RotateCcw className="w-6 h-6" />
+              <h3 className="text-lg font-bold text-white">Reset Round 2?</h3>
+            </div>
+            <p className="text-mosaic-muted text-sm leading-relaxed">
+              This will restart Round 2, regenerate secret roles and physical task assignments, restore player statuses to alive, reset kills to 0, reset voting cycles, and restart the Round 2 timer to full duration. Round 1 progress remains preserved.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => setShowResetR2Modal(false)}
+                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleResetRound2}
+                className="px-4 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Reset Round 2
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Terminate Round 2 */}
+      {showTerminateR2Modal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-mosaic-surface border border-red-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400">
+              <StopCircle className="w-6 h-6" />
+              <h3 className="text-lg font-bold text-white">Terminate Round 2?</h3>
+            </div>
+            <p className="text-mosaic-muted text-sm leading-relaxed">
+              This will immediately stop Round 2, mark the game complete with status ROUND_TERMINATED, stop all master and sub-phase timers, and freeze the dashboard.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={() => setShowTerminateR2Modal(false)}
+                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isActionLoading}
+                onClick={handleTerminateRound2}
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Terminate
+              </button>
+            </div>
           </div>
         </div>
       )}

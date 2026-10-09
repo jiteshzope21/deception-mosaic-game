@@ -57,8 +57,15 @@ export const config = {
   },
 
   rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,
+    windowMs: parseInt(optionalEnv('RATE_LIMIT_WINDOW_MS', String(15 * 60 * 1000)), 10),
+    max: parseInt(
+      optionalEnv('RATE_LIMIT_MAX', process.env.NODE_ENV === 'production' ? '1000' : '5000'),
+      10
+    ),
+    authMax: parseInt(
+      optionalEnv('RATE_LIMIT_AUTH_MAX', process.env.NODE_ENV === 'production' ? '20' : '100'),
+      10
+    ),
   },
 } as const;
 

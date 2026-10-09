@@ -28,17 +28,33 @@ export function createApp() {
   );
 
   // ── Rate limiting ─────────────────────────────────────────────────────────
-  const limiter = rateLimit({
+  // Dedicated auth limiter for login endpoint (brute-force defense)
+  const authLimiter = rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: config.rateLimit.authMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, // Legitimate successful logins do not count against lockout
+    message: {
+      success: false,
+      error: { code: 'RATE_LIMITED', message: 'Too many authentication attempts. Please try again later.' },
+    },
+  });
+  app.use('/api/auth/gm/login', authLimiter);
+
+  // General API rate limiter for gameplay and operational endpoints
+  const apiLimiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
     max: config.rateLimit.max,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.originalUrl.includes('/auth/gm/login'),
     message: {
       success: false,
       error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
     },
   });
-  app.use('/api', limiter);
+  app.use('/api', apiLimiter);
 
   // ── Body parsing ──────────────────────────────────────────────────────────
   app.use(express.json({ limit: '1mb' }));

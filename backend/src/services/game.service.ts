@@ -181,6 +181,11 @@ export async function getGameForGm(gameId: string) {
     teamSize: game.teamSize,
     phase: game.phase,
     result: game.result,
+    isPaused: game.isPaused ?? false,
+    pausedAt: game.pausedAt ?? null,
+    pausedRemainingMs: game.pausedRemainingMs ?? null,
+    pausedRound2RemainingMs: game.pausedRound2RemainingMs ?? null,
+    roundRevision: game.roundRevision ?? 1,
     phaseStartedAt: game.phaseStartedAt,
     phaseEndsAt: game.phaseEndsAt,
     round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
@@ -272,6 +277,11 @@ export async function getGameForPlayer(gameId: string, playerId: string) {
       teamSize: game.teamSize,
       phase: game.phase,
       result: game.result,
+      isPaused: game.isPaused ?? false,
+      pausedAt: game.pausedAt ?? null,
+      pausedRemainingMs: game.pausedRemainingMs ?? null,
+      pausedRound2RemainingMs: game.pausedRound2RemainingMs ?? null,
+      roundRevision: game.roundRevision ?? 1,
       phaseStartedAt: game.phaseStartedAt,
       phaseEndsAt: game.phaseEndsAt,
       round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
@@ -592,8 +602,8 @@ export async function startGame(gameId: string): Promise<IGame> {
 export async function checkGameTimers(game: IGame): Promise<boolean> {
   const now = new Date();
 
-  // If already complete or in lobby, no timers active
-  if (game.phase === GamePhase.GAME_COMPLETE || game.phase === GamePhase.LOBBY) {
+  // If already complete or in lobby or paused, no timers active
+  if (game.phase === GamePhase.GAME_COMPLETE || game.phase === GamePhase.LOBBY || game.isPaused) {
     return false;
   }
 
@@ -828,6 +838,13 @@ export async function scanQrCode(params: {
     throw error;
   }
 
+  if (game.isPaused) {
+    const error = new Error('Game is currently paused.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_PAUSED';
+    throw error;
+  }
+
   // Timer expiry check
   const expired = await checkRound1TimerExpiry(game);
   if (expired || game.phase !== GamePhase.ROUND_1_ACTIVE) {
@@ -942,6 +959,13 @@ export async function submitAnswer(params: {
   if (!game) {
     const error = new Error('Game not found.');
     (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.isPaused) {
+    const error = new Error('Game is currently paused.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_PAUSED';
     throw error;
   }
 
@@ -1389,6 +1413,415 @@ export async function restartGame(gameId: string) {
   return game;
 }
 
+export async function pauseGame(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.phase === GamePhase.LOBBY || game.phase === GamePhase.GAME_COMPLETE) {
+    const error = new Error(`Cannot pause game in phase ${game.phase}.`);
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  if (game.isPaused) {
+    return game;
+  }
+
+  const now = Date.now();
+  if (game.phaseEndsAt) {
+    game.pausedRemainingMs = Math.max(0, game.phaseEndsAt.getTime() - now);
+  }
+  if (game.round2EndsAt) {
+    game.pausedRound2RemainingMs = Math.max(0, game.round2EndsAt.getTime() - now);
+  }
+
+  game.isPaused = true;
+  game.pausedAt = new Date();
+
+  game.events.push({
+    eventType: GameEventType.GAME_PAUSED,
+    playerId: null,
+    eventData: {
+      phase: game.phase,
+      pausedRemainingMs: game.pausedRemainingMs,
+      pausedRound2RemainingMs: game.pausedRound2RemainingMs,
+    },
+    occurredAt: new Date(),
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.GAME_PAUSED, {
+    gameId: game._id,
+    phase: game.phase,
+    pausedRemainingMs: game.pausedRemainingMs,
+    pausedRound2RemainingMs: game.pausedRound2RemainingMs,
+  });
+
+  return game;
+}
+
+export async function resumeGame(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (!game.isPaused) {
+    return game;
+  }
+
+  const now = Date.now();
+  if (game.pausedRemainingMs !== null && game.pausedRemainingMs !== undefined) {
+    game.phaseEndsAt = new Date(now + game.pausedRemainingMs);
+  }
+  if (game.pausedRound2RemainingMs !== null && game.pausedRound2RemainingMs !== undefined) {
+    game.round2EndsAt = new Date(now + game.pausedRound2RemainingMs);
+  }
+
+  game.isPaused = false;
+  game.pausedAt = null;
+  game.pausedRemainingMs = null;
+  game.pausedRound2RemainingMs = null;
+
+  game.events.push({
+    eventType: GameEventType.GAME_RESUMED,
+    playerId: null,
+    eventData: {
+      phase: game.phase,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+    },
+    occurredAt: new Date(),
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.GAME_RESUMED, {
+    gameId: game._id,
+    phase: game.phase,
+    phaseEndsAt: game.phaseEndsAt,
+    round2EndsAt: game.round2EndsAt,
+  });
+
+  return game;
+}
+
+export async function resetRound1(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.phase !== GamePhase.ROUND_1_ACTIVE && game.phase !== GamePhase.ROUND_1_COMPLETE) {
+    const error = new Error(`Cannot reset Round 1 from phase ${game.phase}.`);
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  const startingLives = game.configSnapshot?.startingLives ?? GAME_CONSTANTS.STARTING_LIVES;
+  for (const player of game.players) {
+    player.lives = startingLives;
+  }
+
+  const r1Duration = game.configSnapshot?.round1DurationSeconds ?? GAME_CONSTANTS.ROUND_1_DURATION;
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + r1Duration * 1000);
+
+  // Reset puzzle pieces & completion
+  for (const piece of game.puzzlePieces) {
+    piece.isUnlocked = false;
+    piece.unlockedAt = null;
+    piece.unlockedByPlayerId = null;
+  }
+  game.puzzleCompleted = false;
+
+  // Reset QR mappings progress
+  for (const mapping of game.qrMappings) {
+    mapping.isCompleted = false;
+    mapping.completedByPlayerId = null;
+    mapping.completedAt = null;
+  }
+
+  game.answerAttempts = [] as any;
+  game.isPaused = false;
+  game.pausedAt = null;
+  game.pausedRemainingMs = null;
+  game.phase = GamePhase.ROUND_1_ACTIVE;
+  game.phaseStartedAt = now;
+  game.phaseEndsAt = endsAt;
+  game.round1StartedAt = now;
+  game.round1EndsAt = endsAt;
+  game.roundRevision = (game.roundRevision || 1) + 1;
+
+  game.events.push({
+    eventType: GameEventType.ROUND_RESET,
+    playerId: null,
+    eventData: { round: 'ROUND_1', revision: game.roundRevision },
+    occurredAt: now,
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.ROUND_RESET, {
+    round: 'ROUND_1',
+    revision: game.roundRevision,
+    phase: GamePhase.ROUND_1_ACTIVE,
+    phaseEndsAt: endsAt,
+  });
+
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+    from: game.phase,
+    to: GamePhase.ROUND_1_ACTIVE,
+    phaseEndsAt: endsAt,
+    reason: 'GM_RESET_ROUND_1',
+  });
+
+  emitToGame(String(game._id), SocketEvent.PUZZLE_UPDATE, {
+    unlockedIndices: [],
+    isCompleted: false,
+  });
+
+  for (const p of game.players) {
+    emitToPlayer(String(p._id), SocketEvent.LIVES_UPDATE, { lives: p.lives });
+  }
+
+  return game;
+}
+
+export async function resetRound2(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  const r2Phases = [
+    GamePhase.ROUND_2_ACTIVE,
+    GamePhase.BODY_REPORT,
+    GamePhase.MOVE_TO_VOTING,
+    GamePhase.VOTING,
+    GamePhase.GAME_COMPLETE,
+  ];
+
+  if (!r2Phases.includes(game.phase)) {
+    const error = new Error(`Cannot reset Round 2 from phase ${game.phase}.`);
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  const now = new Date();
+  const r2Duration = game.configSnapshot?.round2DurationSeconds ?? GAME_CONSTANTS.ROUND_2_DURATION;
+  const masterEndsAt = new Date(now.getTime() + r2Duration * 1000);
+
+  // Clear Round 2 specific state
+  game.kills = [] as any;
+  game.killCount = 0;
+  game.bodyReports = [] as any;
+  game.votes = [] as any;
+  game.votingCycle = 0;
+  game.votingRevealedAt = null;
+  game.result = null;
+  game.completedAt = null;
+
+  // Re-assign roles & physical tasks (1 imposter, crewmates, unique tasks)
+  const imposterIndex = Math.floor(Math.random() * game.players.length);
+  const shuffledTasks = shuffle([...GAME_CONSTANTS.DEFAULT_TASKS]);
+  const selectedTasks = shuffledTasks.slice(0, game.teamSize);
+
+  game.players.forEach((p, idx) => {
+    p.role = idx === imposterIndex ? PlayerRole.IMPOSTER : PlayerRole.CREWMATE;
+    p.status = PlayerStatus.ALIVE;
+    p.assignedTaskZone = selectedTasks[idx].zoneNumber;
+    p.assignedTaskName = selectedTasks[idx].taskName;
+    p.roleAssignedAt = now;
+  });
+
+  game.phase = GamePhase.ROUND_2_ACTIVE;
+  game.phaseStartedAt = now;
+  game.phaseEndsAt = masterEndsAt;
+  game.round2StartedAt = now;
+  game.round2EndsAt = masterEndsAt;
+  game.isPaused = false;
+  game.pausedAt = null;
+  game.pausedRemainingMs = null;
+  game.pausedRound2RemainingMs = null;
+  game.roundRevision = (game.roundRevision || 1) + 1;
+
+  game.events.push({
+    eventType: GameEventType.ROUND_RESET,
+    playerId: null,
+    eventData: { round: 'ROUND_2', revision: game.roundRevision },
+    occurredAt: now,
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.ROUND_RESET, {
+    round: 'ROUND_2',
+    revision: game.roundRevision,
+    phase: GamePhase.ROUND_2_ACTIVE,
+    round2EndsAt: masterEndsAt,
+  });
+
+  emitToGame(String(game._id), SocketEvent.ROUND_2_STARTED, {
+    round2StartedAt: now,
+    round2EndsAt: masterEndsAt,
+  });
+
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+    from: game.phase,
+    to: GamePhase.ROUND_2_ACTIVE,
+    phaseEndsAt: masterEndsAt,
+    round2EndsAt: masterEndsAt,
+    reason: 'GM_RESET_ROUND_2',
+  });
+
+  // Re-deliver private roles to each player individually
+  for (const player of game.players) {
+    emitToPlayer(String(player._id), SocketEvent.PLAYER_ROLE_ASSIGNED_PRIVATE, {
+      role: player.role,
+      assignedTaskZone: player.assignedTaskZone,
+      assignedTaskName: player.assignedTaskName,
+    });
+  }
+
+  // Emit full state to GM
+  emitToGm(String(game._id), SocketEvent.GAME_STATE_UPDATE, {
+    phase: GamePhase.ROUND_2_ACTIVE,
+    players: game.players.map((p) => ({
+      id: p._id,
+      playerName: p.playerName,
+      status: p.status,
+      role: p.role,
+      assignedTaskZone: p.assignedTaskZone,
+      assignedTaskName: p.assignedTaskName,
+    })),
+  });
+
+  return game;
+}
+
+export async function terminateRound1(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.phase !== GamePhase.ROUND_1_ACTIVE) {
+    const error = new Error('Cannot terminate Round 1: Game is not in Round 1.');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  const now = new Date();
+  game.phase = GamePhase.ROUND_1_COMPLETE;
+  game.phaseEndsAt = now;
+  game.isPaused = false;
+  game.pausedAt = null;
+  game.pausedRemainingMs = null;
+
+  game.events.push({
+    eventType: GameEventType.ROUND_TERMINATED,
+    playerId: null,
+    eventData: { round: 'ROUND_1', reason: 'GM_TERMINATED' },
+    occurredAt: now,
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.ROUND_TERMINATED, {
+    round: 'ROUND_1',
+    reason: 'GM_TERMINATED',
+  });
+
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+    from: GamePhase.ROUND_1_ACTIVE,
+    to: GamePhase.ROUND_1_COMPLETE,
+    reason: 'GM_TERMINATED',
+  });
+
+  return game;
+}
+
+export async function terminateRound2(gameId: string): Promise<IGame> {
+  const game = await Game.findById(gameId);
+  if (!game) {
+    const error = new Error('Game not found.');
+    (error as any).statusCode = 404;
+    throw error;
+  }
+
+  const r2Phases = [
+    GamePhase.ROUND_2_ACTIVE,
+    GamePhase.BODY_REPORT,
+    GamePhase.MOVE_TO_VOTING,
+    GamePhase.VOTING,
+  ];
+
+  if (!r2Phases.includes(game.phase)) {
+    const error = new Error(`Cannot terminate Round 2 from phase ${game.phase}.`);
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  const now = new Date();
+  game.phase = GamePhase.GAME_COMPLETE;
+  game.result = GameResult.ROUND_TERMINATED;
+  game.completedAt = now;
+  game.phaseEndsAt = now;
+  game.round2EndsAt = now;
+  game.isPaused = false;
+  game.pausedAt = null;
+  game.pausedRemainingMs = null;
+  game.pausedRound2RemainingMs = null;
+
+  game.events.push({
+    eventType: GameEventType.ROUND_TERMINATED,
+    playerId: null,
+    eventData: { round: 'ROUND_2', reason: 'GM_TERMINATED' },
+    occurredAt: now,
+  } as any);
+  game.events.push({
+    eventType: GameEventType.GAME_COMPLETED,
+    playerId: null,
+    eventData: { reason: 'GM_TERMINATED', result: GameResult.ROUND_TERMINATED },
+    occurredAt: now,
+  } as any);
+
+  await game.save();
+
+  emitToGame(String(game._id), SocketEvent.ROUND_TERMINATED, {
+    round: 'ROUND_2',
+    reason: 'GM_TERMINATED',
+  });
+
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+    from: game.phase,
+    to: GamePhase.GAME_COMPLETE,
+    reason: 'GM_TERMINATED',
+    result: GameResult.ROUND_TERMINATED,
+  });
+
+  emitToGame(String(game._id), SocketEvent.GAME_COMPLETE, {
+    result: GameResult.ROUND_TERMINATED,
+    reason: 'GM_TERMINATED',
+  });
+
+  return game;
+}
+
 // ─── Phase 3: Transition & Round 2 Deception Gameplay ─────────────────────────
 
 export async function startTransition(gameId: string): Promise<IGame> {
@@ -1506,6 +1939,13 @@ export async function recordKill(params: {
   if (!game) {
     const error = new Error('Game not found.');
     (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.isPaused) {
+    const error = new Error('Game is currently paused.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_PAUSED';
     throw error;
   }
 
@@ -1682,6 +2122,13 @@ export async function reportBody(params: {
     throw error;
   }
 
+  if (game.isPaused) {
+    const error = new Error('Game is currently paused.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_PAUSED';
+    throw error;
+  }
+
   if (game.phase === GamePhase.GAME_COMPLETE) {
     const error = new Error('Cannot report body: Game is completed and read-only.');
     (error as any).statusCode = 400;
@@ -1778,6 +2225,13 @@ export async function submitVote(params: {
   if (!game) {
     const error = new Error('Game not found.');
     (error as any).statusCode = 404;
+    throw error;
+  }
+
+  if (game.isPaused) {
+    const error = new Error('Game is currently paused.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_PAUSED';
     throw error;
   }
 

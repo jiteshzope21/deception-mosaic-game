@@ -125,6 +125,129 @@ export async function restartGame(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function pauseGame(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.pauseGame(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      isPaused: game.isPaused,
+      pausedRemainingMs: game.pausedRemainingMs,
+      pausedRound2RemainingMs: game.pausedRound2RemainingMs,
+      message: 'Game paused.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('pauseGame error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function resumeGame(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.resumeGame(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      isPaused: game.isPaused,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+      message: 'Game resumed.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('resumeGame error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function resetRound1(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.resetRound1(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      roundRevision: game.roundRevision,
+      message: 'Round 1 reset successfully.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('resetRound1 error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function resetRound2(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.resetRound2(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      roundRevision: game.roundRevision,
+      message: 'Round 2 reset successfully.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('resetRound2 error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function terminateRound1(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.terminateRound1(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      message: 'Round 1 terminated by GM.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('terminateRound1 error:', err);
+    sendInternalError(res);
+  }
+}
+
+export async function terminateRound2(req: Request, res: Response): Promise<void> {
+  try {
+    const gameId = req.params.gameId as string;
+    const game = await gameService.terminateRound2(gameId);
+    sendSuccess(res, {
+      gameId: game._id,
+      phase: game.phase,
+      result: game.result,
+      message: 'Round 2 terminated by GM.',
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
+      return;
+    }
+    logger.error('terminateRound2 error:', err);
+    sendInternalError(res);
+  }
+}
+
 // ─── Player & Public Handlers ─────────────────────────────────────────────────
 
 export async function getPublicLobby(req: Request, res: Response): Promise<void> {

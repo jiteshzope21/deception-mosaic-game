@@ -45,54 +45,68 @@ export default function Round1PlayerPage() {
   const [teamName, setTeamName] = useState('');
   const [timerDisplay, setTimerDisplay] = useState('4:00');
   const [isTimerCritical, setIsTimerCritical] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedRemainingMs, setPausedRemainingMs] = useState<number | null>(null);
   const [uiState, setUiState] = useState<UIState>({ mode: 'scanning' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [phase, setPhase] = useState<string>(GAME_PHASE.ROUND_1_ACTIVE);
 
+  const loadGameState = useCallback(async () => {
+    if (!gameId) return;
+    const res = await getPlayerGameState(gameId);
+    if (!res.success) return;
+
+    const d = res.data;
+    setTeamName(d.teamName);
+    setPhaseEndsAt(d.phaseEndsAt);
+    setPuzzlePieces(d.puzzlePieces);
+    setPhase(d.phase);
+    setIsPaused(!!d.isPaused);
+    setPausedRemainingMs(d.pausedRemainingMs ?? null);
+
+    const me = d.myPlayer;
+    if (me) setLives(me.lives);
+
+    if (d.phase === GAME_PHASE.TRANSITION) {
+      navigate('/player/transition', { replace: true });
+      return;
+    }
+    if (
+      d.phase === GAME_PHASE.ROUND_2_ACTIVE ||
+      d.phase === GAME_PHASE.BODY_REPORT ||
+      d.phase === GAME_PHASE.MOVE_TO_VOTING ||
+      d.phase === GAME_PHASE.VOTING
+    ) {
+      navigate('/player/round2', { replace: true });
+      return;
+    }
+    if (d.phase === GAME_PHASE.GAME_COMPLETE) {
+      navigate('/player/complete', { replace: true });
+      return;
+    }
+    if (d.phase !== GAME_PHASE.ROUND_1_ACTIVE) {
+      navigate('/player/round1-complete', { replace: true });
+    }
+  }, [gameId, navigate]);
+
   // Initial load
   useEffect(() => {
-    if (!gameId) return;
-
-    async function load() {
-      const res = await getPlayerGameState(gameId);
-      if (!res.success) return;
-
-      const d = res.data;
-      setTeamName(d.teamName);
-      setPhaseEndsAt(d.phaseEndsAt);
-      setPuzzlePieces(d.puzzlePieces);
-      setPhase(d.phase);
-
-      const me = d.myPlayer;
-      if (me) setLives(me.lives);
-
-      if (d.phase === GAME_PHASE.TRANSITION) {
-        navigate('/player/transition', { replace: true });
-        return;
-      }
-      if (
-        d.phase === GAME_PHASE.ROUND_2_ACTIVE ||
-        d.phase === GAME_PHASE.BODY_REPORT ||
-        d.phase === GAME_PHASE.MOVE_TO_VOTING ||
-        d.phase === GAME_PHASE.VOTING
-      ) {
-        navigate('/player/round2', { replace: true });
-        return;
-      }
-      if (d.phase === GAME_PHASE.GAME_COMPLETE) {
-        navigate('/player/complete', { replace: true });
-        return;
-      }
-      if (d.phase !== GAME_PHASE.ROUND_1_ACTIVE) {
-        navigate('/player/round1-complete', { replace: true });
-      }
-    }
-
-    void load();
-  }, [gameId, navigate]);
+    void loadGameState();
+  }, [loadGameState]);
 
   // Server-authoritative timer
   useEffect(() => {
+    if (isPaused) {
+      if (typeof pausedRemainingMs === 'number') {
+        const rem = Math.max(0, pausedRemainingMs);
+        const minutes = Math.floor(rem / 60000);
+        const seconds = Math.floor((rem % 60000) / 1000);
+        setTimerDisplay(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+        setIsTimerCritical(rem < 60000);
+      }
+      return;
+    }
+
     if (!phaseEndsAt) return;
     const interval = setInterval(() => {
       const display = formatTimer(phaseEndsAt);
@@ -101,7 +115,7 @@ export default function Round1PlayerPage() {
       setIsTimerCritical(remaining < 60000);
     }, 500);
     return () => clearInterval(interval);
-  }, [phaseEndsAt]);
+  }, [phaseEndsAt, isPaused, pausedRemainingMs]);
 
   // Socket events
   useEffect(() => {
@@ -135,15 +149,43 @@ export default function Round1PlayerPage() {
       }
     });
 
+    const unsubPaused = subscribeToEvent<any>(SOCKET_EVENT.GAME_PAUSED, (data) => {
+      setIsPaused(true);
+      if (typeof data?.pausedRemainingMs === 'number') {
+        setPausedRemainingMs(data.pausedRemainingMs);
+      }
+    });
+
+    const unsubResumed = subscribeToEvent<any>(SOCKET_EVENT.GAME_RESUMED, (data) => {
+      setIsPaused(false);
+      if (data?.phaseEndsAt) {
+        setPhaseEndsAt(data.phaseEndsAt);
+      }
+    });
+
+    const unsubReset = subscribeToEvent<any>(SOCKET_EVENT.ROUND_RESET, () => {
+      setUiState({ mode: 'scanning' });
+      void loadGameState();
+    });
+
+    const unsubTerminated = subscribeToEvent<any>(SOCKET_EVENT.ROUND_TERMINATED, () => {
+      setPhase(GAME_PHASE.ROUND_1_COMPLETE);
+      navigate('/player/round1-complete', { replace: true });
+    });
+
     return () => {
       unsubLives();
       unsubPuzzle();
       unsubPhase();
+      unsubPaused();
+      unsubResumed();
+      unsubReset();
+      unsubTerminated();
     };
-  }, [myPlayerId, playerContext?.player_name, navigate]);
+  }, [myPlayerId, playerContext?.player_name, navigate, loadGameState]);
 
   const handleScan = useCallback(async (qrCodeId: string) => {
-    if (isProcessing || phase !== GAME_PHASE.ROUND_1_ACTIVE) return;
+    if (isProcessing || phase !== GAME_PHASE.ROUND_1_ACTIVE || isPaused) return;
     setIsProcessing(true);
 
     const res = await scanQr(gameId, qrCodeId);
@@ -166,11 +208,11 @@ export default function Round1PlayerPage() {
     if (d.status === 'QUESTION' && d.question) {
       setUiState({ mode: 'question', qrCodeId, question: d.question });
     }
-  }, [gameId, isProcessing, phase]);
+  }, [gameId, isProcessing, phase, isPaused]);
 
   const handleAnswer = useCallback(async (answer: AnswerOption) => {
     const state = uiState;
-    if (state.mode !== 'question' || isProcessing) return;
+    if (state.mode !== 'question' || isProcessing || isPaused) return;
     setIsProcessing(true);
 
     const { qrCodeId, question } = state;
@@ -213,7 +255,7 @@ export default function Round1PlayerPage() {
         setTimeout(() => navigate('/player/round1-complete', { replace: true }), 2500);
       }
     }
-  }, [uiState, gameId, myPlayerId, isProcessing, navigate]);
+  }, [uiState, gameId, myPlayerId, isProcessing, navigate, isPaused]);
 
   const unlockedCount = puzzlePieces.filter((p) => p.isUnlocked).length;
   const totalPieces = puzzlePieces.length;
@@ -259,6 +301,17 @@ export default function Round1PlayerPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-md mx-auto p-4 space-y-4 pb-6">
+          {isPaused && (
+            <div className="bg-yellow-500/15 border border-yellow-500/40 rounded-xl p-3 text-center text-yellow-300 animate-pulse">
+              <p className="text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
+                <span>⏸</span> Game Paused by Game Master
+              </p>
+              <p className="text-[11px] text-yellow-300/80 mt-0.5">
+                Timer and QR interactions are temporarily frozen.
+              </p>
+            </div>
+          )}
+
           {/* Player name */}
           <p className="text-mosaic-muted text-xs text-center">
             Playing as <span className="text-white font-semibold">{playerContext?.player_name}</span>

@@ -27,6 +27,7 @@ export const GAME_RESULT = {
   IMPOSTER_WIN_KILLS: 'IMPOSTER_WIN_KILLS',
   IMPOSTER_WIN_TIME: 'IMPOSTER_WIN_TIME',
   ROUND_1_FAILED: 'ROUND_1_FAILED',
+  ROUND_TERMINATED: 'ROUND_TERMINATED',
 } as const;
 
 export type GameResult = (typeof GAME_RESULT)[keyof typeof GAME_RESULT];
@@ -140,6 +141,10 @@ export const SOCKET_EVENT = {
   PLAYER_LEFT: 'lobby:player_left',
   GAME_STARTED: 'game:started',
   PHASE_CHANGED: 'game:phase_changed',
+  GAME_PAUSED: 'game:paused',
+  GAME_RESUMED: 'game:resumed',
+  ROUND_RESET: 'game:round_reset',
+  ROUND_TERMINATED: 'game:round_terminated',
   LIVES_UPDATE: 'r1:lives_update',
   PUZZLE_UPDATE: 'r1:puzzle_update',
   QR_SCAN_RESULT: 'r1:qr_scan_result',

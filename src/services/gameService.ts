@@ -61,6 +61,11 @@ export interface GmGameStateData {
   phaseStartedAt: string | null;
   phaseEndsAt: string | null;
   round2EndsAt?: string | null;
+  isPaused?: boolean;
+  pausedAt?: string | null;
+  pausedRemainingMs?: number | null;
+  pausedRound2RemainingMs?: number | null;
+  roundRevision?: number;
   puzzleCompleted: boolean;
   puzzlePieces: PuzzlePieceState[];
   players: GmPlayerState[];
@@ -86,6 +91,11 @@ export interface PlayerGameStateData {
   phaseStartedAt: string | null;
   phaseEndsAt: string | null;
   round2EndsAt?: string | null;
+  isPaused?: boolean;
+  pausedAt?: string | null;
+  pausedRemainingMs?: number | null;
+  pausedRound2RemainingMs?: number | null;
+  roundRevision?: number;
   puzzleCompleted: boolean;
   puzzlePieces: PuzzlePieceState[];
   // Phase 3 fields
@@ -351,4 +361,127 @@ export async function getGameConfig(): Promise<ApiResult<GameConfigData>> {
 
 export async function updateGameConfig(data: Partial<GameConfigData>): Promise<ApiResult<GameConfigData>> {
   return apiClient.put('/gm/config', data);
+}
+
+// ─── GM Round Controls ────────────────────────────────────────────────────────
+
+export async function pauseGame(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; isPaused: boolean }>> {
+  return apiClient.post(`/games/${gameId}/pause`);
+}
+
+export async function resumeGame(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; isPaused: boolean }>> {
+  return apiClient.post(`/games/${gameId}/resume`);
+}
+
+export async function resetRound1(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; roundRevision: number }>> {
+  return apiClient.post(`/games/${gameId}/reset-round1`);
+}
+
+export async function resetRound2(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; roundRevision: number }>> {
+  return apiClient.post(`/games/${gameId}/reset-round2`);
+}
+
+export async function terminateRound1(gameId: string): Promise<ApiResult<{ gameId: string; phase: string }>> {
+  return apiClient.post(`/games/${gameId}/terminate-round1`);
+}
+
+export async function terminateRound2(gameId: string): Promise<ApiResult<{ gameId: string; phase: string; result: string }>> {
+  return apiClient.post(`/games/${gameId}/terminate-round2`);
+}
+
+// ─── Fixed Master QR Codes ───────────────────────────────────────────────────
+
+export interface FixedQrCodeItem {
+  _id: string;
+  qrId: string;
+  displayLabel: string;
+  createdAt: string;
+}
+
+export async function listFixedQrs(): Promise<ApiResult<{ qrCodes: FixedQrCodeItem[]; total: number }>> {
+  return apiClient.get('/gm/fixed-qrs');
+}
+
+// ─── Decoy Messages CRUD ──────────────────────────────────────────────────────
+
+export interface DecoyMessageItem {
+  _id: string;
+  message: string;
+  imagePath?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listDecoys(): Promise<ApiResult<{ decoys: DecoyMessageItem[]; total: number }>> {
+  return apiClient.get('/gm/decoys');
+}
+
+export async function createDecoy(data: {
+  message: string;
+  imagePath?: string | null;
+  isActive?: boolean;
+}): Promise<ApiResult<DecoyMessageItem>> {
+  return apiClient.post('/gm/decoys', data);
+}
+
+export async function updateDecoy(
+  id: string,
+  data: Partial<{ message: string; imagePath?: string | null; isActive?: boolean }>
+): Promise<ApiResult<DecoyMessageItem>> {
+  return apiClient.put(`/gm/decoys/${id}`, data);
+}
+
+export async function deleteDecoy(id: string): Promise<ApiResult<{ message: string }>> {
+  return apiClient.delete(`/gm/decoys/${id}`);
+}
+
+// ─── Physical Tasks CRUD ──────────────────────────────────────────────────────
+
+export interface PhysicalTaskItem {
+  _id: string;
+  zoneNumber: number;
+  taskName: string;
+  description: string | null;
+  instructions: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listTasks(): Promise<ApiResult<{ tasks: PhysicalTaskItem[]; total: number }>> {
+  return apiClient.get('/gm/tasks');
+}
+
+export async function createTask(data: {
+  zoneNumber: number;
+  taskName: string;
+  description?: string | null;
+  instructions?: string | null;
+  isActive?: boolean;
+}): Promise<ApiResult<PhysicalTaskItem>> {
+  return apiClient.post('/gm/tasks', data);
+}
+
+export async function updateTask(
+  id: string,
+  data: Partial<{
+    zoneNumber: number;
+    taskName: string;
+    description?: string | null;
+    instructions?: string | null;
+    isActive?: boolean;
+  }>
+): Promise<ApiResult<PhysicalTaskItem>> {
+  return apiClient.put(`/gm/tasks/${id}`, data);
+}
+
+export async function deleteTask(id: string): Promise<ApiResult<{ message: string }>> {
+  return apiClient.delete(`/gm/tasks/${id}`);
+}
+
+// ─── Puzzle Image ─────────────────────────────────────────────────────────────
+
+export async function updatePuzzleImage(puzzleImagePath: string | null): Promise<ApiResult<{ puzzleImagePath: string | null }>> {
+  return apiClient.post('/gm/puzzle-image', { puzzleImagePath });
 }

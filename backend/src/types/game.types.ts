@@ -50,6 +50,7 @@ export enum GameResult {
   IMPOSTER_WIN_KILLS = 'IMPOSTER_WIN_KILLS',
   IMPOSTER_WIN_TIME = 'IMPOSTER_WIN_TIME',
   ROUND_1_FAILED = 'ROUND_1_FAILED',
+  ROUND_TERMINATED = 'ROUND_TERMINATED',
 }
 
 // ─── Player Role ──────────────────────────────────────────────────────────────
@@ -132,6 +133,10 @@ export enum GameEventType {
   GAME_COMPLETED = 'GAME_COMPLETED',
   PHASE_TRANSITION = 'PHASE_TRANSITION',
   TIMER_EXPIRED = 'TIMER_EXPIRED',
+  GAME_PAUSED = 'GAME_PAUSED',
+  GAME_RESUMED = 'GAME_RESUMED',
+  ROUND_RESET = 'ROUND_RESET',
+  ROUND_TERMINATED = 'ROUND_TERMINATED',
 }
 
 // ─── Socket.IO Event Names ────────────────────────────────────────────────────
@@ -154,6 +159,10 @@ export const SocketEvent = {
   PLAYER_LEFT: 'lobby:player_left',
   GAME_STARTED: 'game:started',
   PHASE_CHANGED: 'game:phase_changed',
+  GAME_PAUSED: 'game:paused',
+  GAME_RESUMED: 'game:resumed',
+  ROUND_RESET: 'game:round_reset',
+  ROUND_TERMINATED: 'game:round_terminated',
 
   // Server → Client: Round 1
   LIVES_UPDATE: 'r1:lives_update',

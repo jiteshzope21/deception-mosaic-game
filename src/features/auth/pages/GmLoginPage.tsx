@@ -5,18 +5,25 @@
  * There is NO registration flow — the GM account is pre-created by the organizer.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { useForm } from '../hooks/useGmLoginForm';
-import { gmLogin } from '../../../services/authService';
+import { useAuth } from '../../../app/providers/AuthContext';
 import { APP_CONFIG } from '../../../app/config/constants';
 
 export default function GmLoginPage() {
   const navigate = useNavigate();
+  const { status, loginGm } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === 'gm') {
+      navigate('/gm/dashboard', { replace: true });
+    }
+  }, [status, navigate]);
 
   const { values, errors, handleChange, validate } = useForm({
     email: '',
@@ -25,20 +32,21 @@ export default function GmLoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isLoading) return; // Prevent duplicate submit
     setErrorMessage(null);
 
     if (!validate()) return;
 
     setIsLoading(true);
 
-    const result = await gmLogin(values.email, values.password);
+    const result = await loginGm(values.email, values.password);
 
     setIsLoading(false);
 
     if (result.success) {
       navigate('/gm/dashboard', { replace: true });
     } else {
-      setErrorMessage(result.error.message);
+      setErrorMessage(result.error ?? 'Login failed. Please check your credentials.');
     }
   }
 

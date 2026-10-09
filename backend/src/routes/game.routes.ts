@@ -10,6 +10,12 @@ import {
   startGame,
   emergencyEndRound,
   restartGame,
+  pauseGame,
+  resumeGame,
+  resetRound1,
+  resetRound2,
+  terminateRound1,
+  terminateRound2,
   getPublicLobby,
   getPlayerGameState,
   scanQr,
@@ -49,6 +55,12 @@ router.get('/:gameId/history', requireGm, getGameHistory);
 router.post('/:gameId/start', requireGm, startGame);
 router.post('/:gameId/end-round', requireGm, emergencyEndRound);
 router.post('/:gameId/restart', requireGm, restartGame);
+router.post('/:gameId/pause', requireGm, pauseGame);
+router.post('/:gameId/resume', requireGm, resumeGame);
+router.post('/:gameId/reset-round1', requireGm, resetRound1);
+router.post('/:gameId/reset-round2', requireGm, resetRound2);
+router.post('/:gameId/terminate-round1', requireGm, terminateRound1);
+router.post('/:gameId/terminate-round2', requireGm, terminateRound2);
 
 // ─── GM Routes (Phase 3) ──────────────────────────────────────────────────────
 router.post('/:gameId/transition', requireGm, startTransition);
