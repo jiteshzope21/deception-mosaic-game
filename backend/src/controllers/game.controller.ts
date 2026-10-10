@@ -456,7 +456,7 @@ export async function reportBody(req: Request, res: Response): Promise<void> {
   try {
     const gameId = req.params.gameId as string;
     const reporterPlayerId = req.playerId;
-    const { clientActionId } = req.body;
+    const { clientActionId, victimPlayerId } = req.body;
 
     if (!reporterPlayerId) {
       sendError(res, ErrorCode.UNAUTHORIZED, 'Player authentication required.', 401);
@@ -467,7 +467,7 @@ export async function reportBody(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const result = await gameService.reportBody({ gameId, reporterPlayerId, clientActionId });
+    const result = await gameService.reportBody({ gameId, reporterPlayerId, victimPlayerId, clientActionId });
     sendSuccess(res, result);
   } catch (err: any) {
     if (err.statusCode) {

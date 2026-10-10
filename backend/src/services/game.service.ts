@@ -15,6 +15,7 @@ import { Game, IGame, IQrMapping, IPuzzlePiece, IConfigSnapshot } from '../model
 import { GameConfiguration } from '../models/GameConfiguration.model';
 import { Question, IQuestion } from '../models/Question.model';
 import { DecoyMessage } from '../models/DecoyMessage.model';
+import { PhysicalTask } from '../models/PhysicalTask.model';
 import {
   GamePhase,
   GameResult,
@@ -50,6 +51,119 @@ function shuffle<T>(array: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+interface AssignedTaskItem {
+  zoneNumber: number;
+  zoneName: string;
+  taskName: string;
+  description: string;
+}
+
+async function getShuffledPhysicalTasks(teamSize: number): Promise<AssignedTaskItem[]> {
+  const dbTasks = await PhysicalTask.find({ isActive: true }).sort({ zoneNumber: 1 });
+  const baseTasks: AssignedTaskItem[] = dbTasks.length >= teamSize
+    ? dbTasks.map((t) => ({
+        zoneNumber: t.zoneNumber,
+        zoneName: `Zone 0${t.zoneNumber} — ${t.taskName}`,
+        taskName: t.taskName,
+        description: t.description || t.instructions || 'Follow physical instructions posted on site.',
+      }))
+    : GAME_CONSTANTS.DEFAULT_TASKS.map((t) => ({
+        zoneNumber: t.zoneNumber,
+        zoneName: t.zoneName,
+        taskName: t.taskName,
+        description: t.description,
+      }));
+
+  const shuffled = shuffle(baseTasks);
+  return shuffled.slice(0, teamSize);
+}
+
+export function assignAndValidateRoles(
+  players: any[],
+  teamSize: number,
+  tasks: AssignedTaskItem[],
+  now: Date
+): void {
+  if (players.length !== teamSize || (teamSize !== 5 && teamSize !== 6)) {
+    const error = new Error(`Cannot assign roles: Roster length (${players.length}) does not match team size (${teamSize}).`);
+    (error as any).code = 'INVALID_ROSTER_SIZE';
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  // Ensure unique player IDs
+  const playerIds = new Set(players.map((p) => String(p._id)));
+  if (playerIds.size !== teamSize) {
+    const error = new Error('Cannot assign roles: Duplicate player IDs detected in game roster.');
+    (error as any).code = 'DUPLICATE_PLAYERS';
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
+  if (tasks.length < teamSize) {
+    const error = new Error(`Cannot assign roles: Insufficient tasks (${tasks.length}) for team size (${teamSize}).`);
+    (error as any).code = 'INSUFFICIENT_TASKS';
+    (error as any).statusCode = 500;
+    throw error;
+  }
+
+  // Randomly select exactly one Imposter
+  const imposterIndex = Math.floor(Math.random() * teamSize);
+
+  players.forEach((p, idx) => {
+    if (idx === imposterIndex) {
+      p.role = PlayerRole.IMPOSTER;
+    } else {
+      p.role = PlayerRole.CREWMATE;
+    }
+    p.status = PlayerStatus.ALIVE;
+    p.assignedTaskZone = tasks[idx].zoneNumber;
+    p.assignedTaskZoneName = tasks[idx].zoneName;
+    p.assignedTaskName = tasks[idx].taskName;
+    p.assignedTaskDescription = tasks[idx].description;
+    p.roleAssignedAt = now;
+  });
+
+  // Strict post-assignment validation
+  const imposterCount = players.filter((p) => p.role === PlayerRole.IMPOSTER).length;
+  const crewmateCount = players.filter((p) => p.role === PlayerRole.CREWMATE).length;
+
+  if (imposterCount !== 1) {
+    const error = new Error(`Role assignment validation failed: Expected exactly 1 Imposter, got ${imposterCount}.`);
+    (error as any).code = 'INVALID_ROLE_ASSIGNMENT';
+    (error as any).statusCode = 500;
+    throw error;
+  }
+  if (crewmateCount !== teamSize - 1) {
+    const error = new Error(`Role assignment validation failed: Expected ${teamSize - 1} Crewmates, got ${crewmateCount}.`);
+    (error as any).code = 'INVALID_ROLE_ASSIGNMENT';
+    (error as any).statusCode = 500;
+    throw error;
+  }
+  for (const p of players) {
+    if (!p.role || (p.role !== PlayerRole.IMPOSTER && p.role !== PlayerRole.CREWMATE)) {
+      const error = new Error(`Role assignment validation failed: Player ${p.playerName} (${p._id}) has invalid role: ${p.role}`);
+      (error as any).code = 'INVALID_ROLE_ASSIGNMENT';
+      (error as any).statusCode = 500;
+      throw error;
+    }
+    if (!p.assignedTaskZone || !p.assignedTaskName) {
+      const error = new Error(`Role assignment validation failed: Player ${p.playerName} (${p._id}) is missing physical task assignment.`);
+      (error as any).code = 'MISSING_TASK_ASSIGNMENT';
+      (error as any).statusCode = 500;
+      throw error;
+    }
+  }
+}
+
+export function areRolesAssigned(players: any[], teamSize: number): boolean {
+  if (!players || players.length !== teamSize) return false;
+  const imposters = players.filter((p) => p.role === PlayerRole.IMPOSTER);
+  const crewmates = players.filter((p) => p.role === PlayerRole.CREWMATE);
+  if (imposters.length !== 1 || crewmates.length !== teamSize - 1) return false;
+  return players.every((p) => typeof p.assignedTaskZone === 'number' && Boolean(p.assignedTaskName));
 }
 
 // ─── Game Creation & Lobby ────────────────────────────────────────────────────
@@ -230,7 +344,9 @@ export async function getGameForGm(gameId: string) {
       lives: p.lives,
       role: p.role, // GM is permitted to see all roles
       assignedTaskZone: p.assignedTaskZone,
+      assignedTaskZoneName: p.assignedTaskZoneName,
       assignedTaskName: p.assignedTaskName,
+      assignedTaskDescription: p.assignedTaskDescription,
       joinedAt: p.joinedAt,
     })),
     qrMappings: game.qrMappings.map((m) => ({
@@ -262,53 +378,69 @@ export async function getGameForPlayer(gameId: string, playerId: string) {
 
   // Sanitize: Player only sees public info, own role, own assigned task/zone
   // NEVER send other players' roles, other players' tasks, or unrevealed vote targets!
-    const isRound2ActiveOrLater = [
-      GamePhase.ROUND_2_ACTIVE,
-      GamePhase.BODY_REPORT,
-      GamePhase.MOVE_TO_VOTING,
-      GamePhase.VOTING,
-      GamePhase.GAME_COMPLETE,
-    ].includes(game.phase);
+  const isRound2OrTransition = [
+    GamePhase.TRANSITION,
+    GamePhase.ROUND_2_ACTIVE,
+    GamePhase.BODY_REPORT,
+    GamePhase.MOVE_TO_VOTING,
+    GamePhase.VOTING,
+    GamePhase.GAME_COMPLETE,
+  ].includes(game.phase);
 
-    return {
-      id: game._id,
-      gameCode: game.gameCode,
-      teamName: game.teamName,
-      teamSize: game.teamSize,
-      phase: game.phase,
-      result: game.result,
-      isPaused: game.isPaused ?? false,
-      pausedAt: game.pausedAt ?? null,
-      pausedRemainingMs: game.pausedRemainingMs ?? null,
-      pausedRound2RemainingMs: game.pausedRound2RemainingMs ?? null,
-      roundRevision: game.roundRevision ?? 1,
-      phaseStartedAt: game.phaseStartedAt,
-      phaseEndsAt: game.phaseEndsAt,
-      round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
-      round1EndsAt: game.round1EndsAt || game.phaseEndsAt,
-      round2StartedAt: game.round2StartedAt,
-      round2EndsAt: game.round2EndsAt, // Continuous 7-minute master timer
-      votingCycle: game.votingCycle,
-      votingStatus: {
-        submittedVotesCount,
-        eligibleVotersCount,
-      },
-      puzzleCompleted: game.puzzleCompleted,
-      puzzlePieces: game.puzzlePieces.map((p) => ({
-        pieceIndex: p.pieceIndex,
-        isUnlocked: p.isUnlocked,
-      })),
-      myPlayer: {
-        id: player._id,
-        playerName: player.playerName,
-        lives: player.lives,
-        status: player.status,
-        role: isRound2ActiveOrLater ? player.role : null, // Revealed only when Round 2 starts
-        assignedTaskZone: isRound2ActiveOrLater ? player.assignedTaskZone : null,
-        assignedTaskName: isRound2ActiveOrLater ? player.assignedTaskName : null,
-        hasVoted,
-        killCount: (isRound2ActiveOrLater && player.role === PlayerRole.IMPOSTER) ? game.killCount : undefined,
-      },
+  // Ensure assignments are generated once and persisted if game reached transition/round 2
+  if (isRound2OrTransition && !areRolesAssigned(game.players, game.teamSize)) {
+    logger.info(`[GameService] Generating persistent Round 2 assignments for game ${game.gameCode}`);
+    const selectedTasks = await getShuffledPhysicalTasks(game.teamSize);
+    assignAndValidateRoles(game.players, game.teamSize, selectedTasks, new Date());
+    await game.save();
+  }
+
+  return {
+    id: game._id,
+    gameCode: game.gameCode,
+    teamName: game.teamName,
+    teamSize: game.teamSize,
+    phase: game.phase,
+    result: game.result,
+    isPaused: game.isPaused ?? false,
+    pausedAt: game.pausedAt ?? null,
+    pausedRemainingMs: game.pausedRemainingMs ?? null,
+    pausedRound2RemainingMs: game.pausedRound2RemainingMs ?? null,
+    roundRevision: game.roundRevision ?? 1,
+    phaseStartedAt: game.phaseStartedAt,
+    phaseEndsAt: game.phaseEndsAt,
+    round1StartedAt: game.round1StartedAt || game.phaseStartedAt,
+    round1EndsAt: game.round1EndsAt || game.phaseEndsAt,
+    round2StartedAt: game.round2StartedAt,
+    round2EndsAt: game.round2EndsAt, // Continuous 6-minute master timer
+    votingCycle: game.votingCycle,
+    votingStatus: {
+      submittedVotesCount,
+      eligibleVotersCount,
+    },
+    puzzleCompleted: game.puzzleCompleted,
+    puzzlePieces: game.puzzlePieces.map((p) => ({
+      pieceIndex: p.pieceIndex,
+      isUnlocked: p.isUnlocked,
+    })),
+    myRole: isRound2OrTransition ? player.role : null,
+    myTaskZone: isRound2OrTransition ? player.assignedTaskZone : null,
+    myTaskZoneName: isRound2OrTransition ? player.assignedTaskZoneName : null,
+    myTaskName: isRound2OrTransition ? player.assignedTaskName : null,
+    myTaskDescription: isRound2OrTransition ? player.assignedTaskDescription : null,
+    myPlayer: {
+      id: player._id,
+      playerName: player.playerName,
+      lives: player.lives,
+      status: player.status,
+      role: isRound2OrTransition ? player.role : null,
+      assignedTaskZone: isRound2OrTransition ? player.assignedTaskZone : null,
+      assignedTaskZoneName: isRound2OrTransition ? player.assignedTaskZoneName : null,
+      assignedTaskName: isRound2OrTransition ? player.assignedTaskName : null,
+      assignedTaskDescription: isRound2OrTransition ? player.assignedTaskDescription : null,
+      hasVoted,
+      killCount: (isRound2OrTransition && player.role === PlayerRole.IMPOSTER) ? game.killCount : undefined,
+    },
     teammates: game.players.map((p) => ({
       id: p._id,
       playerName: p.playerName,
@@ -780,8 +912,15 @@ export async function checkRound1TimerExpiry(game: IGame): Promise<boolean> {
 
 async function startRound2Internal(game: IGame): Promise<IGame> {
   const now = new Date();
-  const round2Duration = game.configSnapshot?.round2DurationSeconds ?? 420;
+  const round2Duration = game.configSnapshot?.round2DurationSeconds ?? GAME_CONSTANTS.ROUND_2_DURATION;
   const masterEndsAt = new Date(now.getTime() + round2Duration * 1000);
+
+  // Verify and ensure valid role assignments once
+  if (!areRolesAssigned(game.players, game.teamSize)) {
+    logger.warn(`[GameService] Roles not properly assigned prior to Round 2 start for game ${game.gameCode}. Assigning and validating now.`);
+    const selectedTasks = await getShuffledPhysicalTasks(game.teamSize);
+    assignAndValidateRoles(game.players, game.teamSize, selectedTasks, now);
+  }
 
   game.phase = GamePhase.ROUND_2_ACTIVE;
   game.phaseStartedAt = now;
@@ -815,7 +954,9 @@ async function startRound2Internal(game: IGame): Promise<IGame> {
     emitToPlayer(String(player._id), SocketEvent.PLAYER_ROLE_ASSIGNED_PRIVATE, {
       role: player.role,
       assignedTaskZone: player.assignedTaskZone,
+      assignedTaskZoneName: player.assignedTaskZoneName,
       assignedTaskName: player.assignedTaskName,
+      assignedTaskDescription: player.assignedTaskDescription,
     });
   }
 
@@ -1634,17 +1775,8 @@ export async function resetRound2(gameId: string): Promise<IGame> {
   game.completedAt = null;
 
   // Re-assign roles & physical tasks (1 imposter, crewmates, unique tasks)
-  const imposterIndex = Math.floor(Math.random() * game.players.length);
-  const shuffledTasks = shuffle([...GAME_CONSTANTS.DEFAULT_TASKS]);
-  const selectedTasks = shuffledTasks.slice(0, game.teamSize);
-
-  game.players.forEach((p, idx) => {
-    p.role = idx === imposterIndex ? PlayerRole.IMPOSTER : PlayerRole.CREWMATE;
-    p.status = PlayerStatus.ALIVE;
-    p.assignedTaskZone = selectedTasks[idx].zoneNumber;
-    p.assignedTaskName = selectedTasks[idx].taskName;
-    p.roleAssignedAt = now;
-  });
+  const selectedTasks = await getShuffledPhysicalTasks(game.teamSize);
+  assignAndValidateRoles(game.players, game.teamSize, selectedTasks, now);
 
   game.phase = GamePhase.ROUND_2_ACTIVE;
   game.phaseStartedAt = now;
@@ -1691,7 +1823,9 @@ export async function resetRound2(gameId: string): Promise<IGame> {
     emitToPlayer(String(player._id), SocketEvent.PLAYER_ROLE_ASSIGNED_PRIVATE, {
       role: player.role,
       assignedTaskZone: player.assignedTaskZone,
+      assignedTaskZoneName: player.assignedTaskZoneName,
       assignedTaskName: player.assignedTaskName,
+      assignedTaskDescription: player.assignedTaskDescription,
     });
   }
 
@@ -1704,7 +1838,9 @@ export async function resetRound2(gameId: string): Promise<IGame> {
       status: p.status,
       role: p.role,
       assignedTaskZone: p.assignedTaskZone,
+      assignedTaskZoneName: p.assignedTaskZoneName,
       assignedTaskName: p.assignedTaskName,
+      assignedTaskDescription: p.assignedTaskDescription,
     })),
   });
 
@@ -1843,24 +1979,11 @@ export async function startTransition(gameId: string): Promise<IGame> {
   const transitionDuration = game.configSnapshot?.transitionDurationSeconds ?? 60;
   const transitionEndsAt = new Date(now.getTime() + transitionDuration * 1000);
 
-  // 1. Assign Roles: Exactly 1 Imposter, remaining Crewmates
-  const imposterIndex = Math.floor(Math.random() * game.players.length);
-
-  // 2. Assign Physical Tasks: 5 tasks for 5-player, 6 tasks for 6-player
-  const shuffledTasks = shuffle([...GAME_CONSTANTS.DEFAULT_TASKS]);
-  const selectedTasks = shuffledTasks.slice(0, game.teamSize);
-
-  game.players.forEach((p, idx) => {
-    if (idx === imposterIndex) {
-      p.role = PlayerRole.IMPOSTER;
-    } else {
-      p.role = PlayerRole.CREWMATE;
-    }
-    p.status = PlayerStatus.ALIVE;
-    p.assignedTaskZone = selectedTasks[idx].zoneNumber;
-    p.assignedTaskName = selectedTasks[idx].taskName;
-    p.roleAssignedAt = now;
-  });
+  // 1. Assign Roles & Physical Tasks once: Exactly 1 Imposter, remaining Crewmates
+  if (!areRolesAssigned(game.players, game.teamSize)) {
+    const selectedTasks = await getShuffledPhysicalTasks(game.teamSize);
+    assignAndValidateRoles(game.players, game.teamSize, selectedTasks, now);
+  }
 
   game.phase = GamePhase.TRANSITION;
   game.phaseStartedAt = now;
@@ -1902,7 +2025,9 @@ export async function startTransition(gameId: string): Promise<IGame> {
       status: p.status,
       role: p.role,
       assignedTaskZone: p.assignedTaskZone,
+      assignedTaskZoneName: p.assignedTaskZoneName,
       assignedTaskName: p.assignedTaskName,
+      assignedTaskDescription: p.assignedTaskDescription,
     })),
   });
 
@@ -2111,9 +2236,10 @@ export async function recordKill(params: {
 export async function reportBody(params: {
   gameId: string;
   reporterPlayerId: string;
+  victimPlayerId?: string;
   clientActionId?: string;
 }) {
-  const { gameId, reporterPlayerId } = params;
+  const { gameId, reporterPlayerId, victimPlayerId } = params;
 
   const game = await Game.findById(gameId);
   if (!game) {
@@ -2136,8 +2262,8 @@ export async function reportBody(params: {
   }
 
   await checkGameTimers(game);
-  if (game.phase !== GamePhase.BODY_REPORT) {
-    const error = new Error(`Cannot report body: Game is in phase ${game.phase}, expected BODY_REPORT.`);
+  if (game.phase !== GamePhase.BODY_REPORT && game.phase !== GamePhase.ROUND_2_ACTIVE) {
+    const error = new Error(`Cannot report body: Game is in phase ${game.phase}, expected BODY_REPORT or ROUND_2_ACTIVE.`);
     (error as any).statusCode = 400;
     (error as any).code = 'INVALID_PHASE_FOR_REPORT';
     throw error;
@@ -2156,19 +2282,23 @@ export async function reportBody(params: {
     throw error;
   }
 
-  // Find pending body report
-  const pendingReport = game.bodyReports.find((b) => b.status === BodyReportStatus.PENDING);
-  if (!pendingReport) {
-    return {
-      success: true,
-      message: 'Body report already handled.',
-      phase: game.phase,
-    };
-  }
+  const victim = victimPlayerId ? game.players.id(victimPlayerId) : null;
 
+  // Find or create pending body report
+  const pendingReport = game.bodyReports.find((b) => b.status === BodyReportStatus.PENDING);
   const now = new Date();
-  pendingReport.status = BodyReportStatus.ACCEPTED;
-  pendingReport.reporterPlayerId = reporter._id;
+  if (pendingReport) {
+    pendingReport.status = BodyReportStatus.ACCEPTED;
+    pendingReport.reporterPlayerId = reporter._id;
+  } else {
+    game.bodyReports.push({
+      _id: new Types.ObjectId(),
+      killId: null,
+      reporterPlayerId: reporter._id,
+      status: BodyReportStatus.ACCEPTED,
+      reportedAt: now,
+    } as any);
+  }
 
   const moveDuration = game.configSnapshot?.moveToVotingDurationSeconds ?? 15;
   const moveEndsAt = new Date(now.getTime() + moveDuration * 1000);
@@ -2180,7 +2310,12 @@ export async function reportBody(params: {
   game.events.push({
     eventType: GameEventType.BODY_REPORTED,
     playerId: reporter._id,
-    eventData: { reporterPlayerId: reporter._id, reporterPlayerName: reporter.playerName },
+    eventData: {
+      reporterPlayerId: reporter._id,
+      reporterPlayerName: reporter.playerName,
+      reportedVictimId: victim?._id ?? null,
+      reportedVictimName: victim?.playerName ?? null,
+    },
     occurredAt: now,
   } as any);
 
@@ -2191,11 +2326,13 @@ export async function reportBody(params: {
   emitToGame(String(game._id), SocketEvent.BODY_REPORTED, {
     reporterPlayerId: reporter._id,
     reporterPlayerName: reporter.playerName,
+    victimPlayerName: victim?.playerName ?? null,
   });
 
   emitToGame(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, {
     phaseEndsAt: moveEndsAt,
     round2EndsAt: game.round2EndsAt,
+    reporterPlayerName: reporter.playerName,
   });
 
   emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {

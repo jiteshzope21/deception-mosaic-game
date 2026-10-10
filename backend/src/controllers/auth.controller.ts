@@ -12,7 +12,7 @@ import { Game } from '../models/Game.model';
 import { signGmToken, signPlayerToken } from '../utils/jwt.utils';
 import { sendSuccess, sendError, sendUnauthorized, sendInternalError } from '../utils/response.utils';
 import { ErrorCode } from '../types/auth.types';
-import { PlayerStatus, SocketEvent, GameEventType } from '../types/game.types';
+import { PlayerStatus, SocketEvent, GameEventType, GamePhase } from '../types/game.types';
 import { emitToGame } from '../sockets/socketServer';
 import { logger } from '../utils/logger';
 
@@ -109,47 +109,59 @@ export async function playerJoin(req: Request, res: Response): Promise<void> {
   try {
     const { gameCode, playerName } = req.body as { gameCode: string; playerName: string };
 
-    // Find game in LOBBY phase
-    const game = await Game.findOne({ gameCode, phase: 'LOBBY' });
+    // Find game (accepts LOBBY or active in-progress games)
+    const game = await Game.findOne({
+      gameCode: gameCode.toUpperCase().trim(),
+      phase: { $ne: GamePhase.GAME_COMPLETE },
+    });
     if (!game) {
-      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game not found or not accepting players.', 404);
+      sendError(res, ErrorCode.GAME_NOT_FOUND, 'Game not found or has completed.', 404);
       return;
     }
 
-    // Find matching registered player slot
+    // Find matching registered player slot by name
     const playerSlot = game.players.find(
-      (p) =>
-        p.playerName.toLowerCase() === playerName.toLowerCase() &&
-        p.status === PlayerStatus.REGISTERED
+      (p) => p.playerName.toLowerCase() === playerName.toLowerCase()
     );
 
     if (!playerSlot) {
-      // Either name not registered or slot already taken
-      const existingSlot = game.players.find(
-        (p) => p.playerName.toLowerCase() === playerName.toLowerCase()
-      );
-      if (existingSlot && existingSlot.status !== PlayerStatus.REGISTERED) {
-        sendError(res, ErrorCode.PLAYER_ALREADY_JOINED, 'This player slot has already been claimed.', 409);
-      } else {
-        sendError(res, ErrorCode.PLAYER_NOT_FOUND, 'Player name not found in this game.', 404);
-      }
+      sendError(res, ErrorCode.PLAYER_NOT_FOUND, 'Player name not found in this game.', 404);
       return;
     }
 
-    // Claim the slot
-    playerSlot.status = PlayerStatus.JOINED;
-    playerSlot.joinedAt = new Date();
+    // If initial join in LOBBY, claim the slot
+    if (playerSlot.status === PlayerStatus.REGISTERED) {
+      playerSlot.status = PlayerStatus.JOINED;
+      playerSlot.joinedAt = new Date();
 
-    game.events.push({
-      eventType: GameEventType.PLAYER_JOINED,
-      playerId: playerSlot._id,
-      eventData: { playerName: playerSlot.playerName },
-      occurredAt: new Date(),
-    } as any);
+      game.events.push({
+        eventType: GameEventType.PLAYER_JOINED,
+        playerId: playerSlot._id,
+        eventData: { playerName: playerSlot.playerName },
+        occurredAt: new Date(),
+      } as any);
 
-    await game.save();
+      await game.save();
 
-    // Issue player JWT
+      // Emit Realtime updates to GM and waiting players
+      emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, {
+        gameId: game._id,
+        gameCode: game.gameCode,
+        players: game.players.map((p) => ({
+          id: p._id,
+          playerName: p.playerName,
+          status: p.status,
+          isClaimed: p.status !== PlayerStatus.REGISTERED,
+        })),
+      });
+
+      emitToGame(String(game._id), SocketEvent.PLAYER_JOINED, {
+        playerId: playerSlot._id,
+        playerName: playerSlot.playerName,
+      });
+    }
+
+    // Issue player JWT for this specific player slot
     const token = signPlayerToken(
       String(playerSlot._id),
       String(game._id),

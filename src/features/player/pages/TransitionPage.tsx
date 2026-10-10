@@ -46,16 +46,11 @@ export default function TransitionPage() {
       const res = await getPlayerGameState(gameId);
       if (!res.success) return;
       setState(res.data);
-      // Navigate if already past transition
-      if (
-        res.data.phase === GAME_PHASE.ROUND_2_ACTIVE ||
-        res.data.phase === GAME_PHASE.BODY_REPORT ||
-        res.data.phase === GAME_PHASE.MOVE_TO_VOTING ||
-        res.data.phase === GAME_PHASE.VOTING
-      ) {
-        navigate('/player/round2', { replace: true });
-      } else if (res.data.phase === GAME_PHASE.GAME_COMPLETE) {
+      // Navigate to unified Round 2 page
+      if (res.data.phase === GAME_PHASE.GAME_COMPLETE) {
         navigate('/player/complete', { replace: true });
+      } else {
+        navigate('/player/round2', { replace: true });
       }
       setLoading(false);
     }

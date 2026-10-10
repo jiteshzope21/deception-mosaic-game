@@ -33,8 +33,8 @@ export default function Round1CompletePage() {
       setIsLoaded(true);
       // Navigate to correct current phase
       if (data.phase === GAME_PHASE.LOBBY) navigate('/player/lobby', { replace: true });
-      else if (data.phase === GAME_PHASE.TRANSITION) navigate('/player/transition', { replace: true });
       else if (
+        data.phase === GAME_PHASE.TRANSITION ||
         data.phase === GAME_PHASE.ROUND_2_ACTIVE ||
         data.phase === GAME_PHASE.BODY_REPORT ||
         data.phase === GAME_PHASE.MOVE_TO_VOTING ||
@@ -51,9 +51,11 @@ export default function Round1CompletePage() {
   // Listen for GM triggering transition to Phase 3
   useEffect(() => {
     const unsub = subscribeToEvent<{ to: string }>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
-      if (data.to === GAME_PHASE.TRANSITION) navigate('/player/transition', { replace: true });
-      else if (data.to === GAME_PHASE.ROUND_2_ACTIVE) navigate('/player/round2', { replace: true });
-      else if (data.to === GAME_PHASE.GAME_COMPLETE) navigate('/player/complete', { replace: true });
+      if (data.to === GAME_PHASE.TRANSITION || data.to === GAME_PHASE.ROUND_2_ACTIVE) {
+        navigate('/player/round2', { replace: true });
+      } else if (data.to === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
+      }
     });
     return unsub;
   }, [navigate]);

@@ -47,7 +47,9 @@ export interface GmPlayerState {
   lives: number;
   role?: string | null;
   assignedTaskZone?: number | null;
+  assignedTaskZoneName?: string | null;
   assignedTaskName?: string | null;
+  assignedTaskDescription?: string | null;
   joinedAt: string | null;
 }
 
@@ -101,7 +103,9 @@ export interface PlayerGameStateData {
   // Phase 3 fields
   myRole?: string | null;
   myTaskZone?: number | null;
+  myTaskZoneName?: string | null;
   myTaskName?: string | null;
+  myTaskDescription?: string | null;
   killCount?: number;
   votingCycle?: number;
   myVotedFor?: string | null;
@@ -113,7 +117,9 @@ export interface PlayerGameStateData {
     status: string;
     role?: string | null;
     assignedTaskZone?: number | null;
+    assignedTaskZoneName?: string | null;
     assignedTaskName?: string | null;
+    assignedTaskDescription?: string | null;
   };
   teammates: Array<{
     id: string;
@@ -268,9 +274,10 @@ export async function recordKill(
 
 export async function reportBody(
   gameId: string,
-  clientActionId?: string
+  clientActionId?: string,
+  victimPlayerId?: string
 ): Promise<ApiResult<BodyReportResult>> {
-  return apiClient.post<BodyReportResult>(`/games/${gameId}/body-report`, { clientActionId });
+  return apiClient.post<BodyReportResult>(`/games/${gameId}/body-report`, { clientActionId, victimPlayerId });
 }
 
 export async function submitVote(

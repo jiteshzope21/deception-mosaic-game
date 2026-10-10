@@ -9,6 +9,8 @@ import { createSocketServer } from './sockets/socketServer';
 import { config } from './config/config';
 import { logger } from './utils/logger';
 
+import { startGameTimerService, stopGameTimerService } from './services/gameTimer.service';
+
 async function bootstrap() {
   // Connect to MongoDB first
   await connectDatabase();
@@ -19,6 +21,9 @@ async function bootstrap() {
   // Attach Socket.IO
   createSocketServer(httpServer);
 
+  // Start background game timer engine for authoritative phase progressions
+  startGameTimerService();
+
   httpServer.listen(config.port, () => {
     logger.info(`MOSAIC backend running on port ${config.port} [${config.env}]`);
     logger.info(`Health: http://localhost:${config.port}/api/health`);
@@ -27,6 +32,7 @@ async function bootstrap() {
   // Graceful shutdown
   process.on('SIGTERM', () => {
     logger.info('SIGTERM received. Shutting down gracefully...');
+    stopGameTimerService();
     httpServer.close(() => {
       logger.info('HTTP server closed.');
       process.exit(0);

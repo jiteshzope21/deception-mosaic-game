@@ -14,7 +14,7 @@ import { APP_CONFIG } from '@/app/config/constants';
 import { useAuth } from '@/app/providers/AuthContext';
 import { getPublicLobby, type LobbyPlayerData } from '@/services/gameService';
 import { subscribeToEvent } from '@/lib/socket/socketClient';
-import { SocketEvent } from '@/types/enums';
+import { SocketEvent, GAME_PHASE, type GamePhase } from '@/types/enums';
 
 export default function JoinPage() {
   const [searchParams] = useSearchParams();
@@ -24,6 +24,7 @@ export default function JoinPage() {
 
   const [players, setPlayers] = useState<LobbyPlayerData[]>([]);
   const [teamName, setTeamName] = useState<string>('');
+  const [currentPhase, setCurrentPhase] = useState<GamePhase | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -54,6 +55,7 @@ export default function JoinPage() {
 
       setTeamName(res.data.teamName);
       setPlayers(res.data.players);
+      setCurrentPhase(res.data.phase);
       setIsLoading(false);
     }
 
@@ -67,11 +69,22 @@ export default function JoinPage() {
       if (data && Array.isArray(data.players)) {
         setPlayers(data.players);
       }
+      if (data && data.phase) {
+        setCurrentPhase(data.phase);
+      }
+    });
+
+    const unsubPhase = subscribeToEvent<{ to: GamePhase }>(SocketEvent.PHASE_CHANGED, (data) => {
+      if (!mounted) return;
+      if (data && data.to) {
+        setCurrentPhase(data.to);
+      }
     });
 
     return () => {
       mounted = false;
       unsub();
+      unsubPhase();
     };
   }, [gameCode]);
 
@@ -88,12 +101,30 @@ export default function JoinPage() {
     const result = await joinPlayerSession(gameCode, selectedName);
 
     if (result.success) {
-      navigate('/player/lobby', { replace: true });
+      if (
+        currentPhase === GAME_PHASE.TRANSITION ||
+        currentPhase === GAME_PHASE.ROUND_2_ACTIVE ||
+        currentPhase === GAME_PHASE.BODY_REPORT ||
+        currentPhase === GAME_PHASE.MOVE_TO_VOTING ||
+        currentPhase === GAME_PHASE.VOTING
+      ) {
+        navigate('/player/round2', { replace: true });
+      } else if (currentPhase === GAME_PHASE.ROUND_1_ACTIVE) {
+        navigate('/player/round1', { replace: true });
+      } else if (currentPhase === GAME_PHASE.ROUND_1_COMPLETE) {
+        navigate('/player/round1-complete', { replace: true });
+      } else if (currentPhase === GAME_PHASE.GAME_COMPLETE) {
+        navigate('/player/complete', { replace: true });
+      } else {
+        navigate('/player/lobby', { replace: true });
+      }
     } else {
       setError(result.error || 'Failed to join game.');
       setIsJoining(false);
     }
   }
+
+  const selectedPlayer = players.find((p) => p.playerName === selectedName);
 
   return (
     <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
@@ -125,7 +156,7 @@ export default function JoinPage() {
         <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6 shadow-xl">
           <h2 className="text-white font-semibold text-lg mb-1">Select Your Name</h2>
           <p className="text-mosaic-muted text-xs mb-5">
-            Choose the name the Game Master registered for you.
+            Choose your assigned name to join or resume your active game.
           </p>
 
           {isLoading ? (
@@ -149,19 +180,16 @@ export default function JoinPage() {
                     <button
                       key={p.id || p.playerName}
                       type="button"
-                      disabled={isClaimed}
                       onClick={() => {
-                        if (!isClaimed) {
-                          setSelectedName(p.playerName);
-                          setError(null);
-                        }
+                        setSelectedName(p.playerName);
+                        setError(null);
                       }}
-                      className={`w-full px-4 py-3.5 rounded-xl border text-left font-medium transition-all flex items-center justify-between ${
-                        isClaimed
-                          ? 'bg-mosaic-dark/40 border-mosaic-border/40 text-mosaic-muted/50 cursor-not-allowed'
-                          : isSelected
+                      className={`w-full px-4 py-3.5 rounded-xl border text-left font-medium transition-all flex items-center justify-between cursor-pointer ${
+                        isSelected
                           ? 'bg-mosaic-accent/15 border-mosaic-accent text-white shadow-sm shadow-mosaic-accent/10'
-                          : 'bg-mosaic-dark border-mosaic-border text-mosaic-muted hover:border-mosaic-accent/40 hover:text-white cursor-pointer'
+                          : isClaimed
+                          ? 'bg-mosaic-dark/80 border-mosaic-border/70 text-zinc-300 hover:border-mosaic-accent/40'
+                          : 'bg-mosaic-dark border-mosaic-border text-mosaic-muted hover:border-mosaic-accent/40 hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -169,8 +197,8 @@ export default function JoinPage() {
                         <span className={isSelected ? 'text-white font-semibold' : ''}>{p.playerName}</span>
                       </div>
                       {isClaimed ? (
-                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                          <Lock className="w-3 h-3" /> Joined
+                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                          <Lock className="w-3 h-3 text-mosaic-accent" /> Resume
                         </span>
                       ) : isSelected ? (
                         <CheckCircle2 className="w-4 h-4 text-mosaic-accent" />
@@ -195,8 +223,10 @@ export default function JoinPage() {
                 {isJoining ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Joining Team...</span>
+                    <span>Connecting...</span>
                   </>
+                ) : selectedPlayer?.isClaimed ? (
+                  'Resume Game'
                 ) : (
                   'Join Game'
                 )}
@@ -206,7 +236,7 @@ export default function JoinPage() {
         </div>
 
         <p className="mt-4 text-center text-xs text-mosaic-muted">
-          No passwords or account required. Just select your assigned name.
+          No passwords required. Select your registered name to enter or resume your game.
         </p>
       </div>
     </div>

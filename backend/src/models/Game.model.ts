@@ -119,7 +119,9 @@ export interface IGamePlayer {
   // Private (only sent to player's own session + GM)
   role: PlayerRole | null;
   assignedTaskZone: number | null;
+  assignedTaskZoneName: string | null;
   assignedTaskName: string | null;
+  assignedTaskDescription: string | null;
   roleAssignedAt: Date | null;
 }
 
@@ -141,7 +143,9 @@ const gamePlayerSchema = new Schema<IGamePlayer>(
     // Private fields — only returned to owner + GM
     role: { type: String, enum: Object.values(PlayerRole), default: null },
     assignedTaskZone: { type: Number, min: 1, max: 6, default: null },
+    assignedTaskZoneName: { type: String, default: null },
     assignedTaskName: { type: String, default: null },
+    assignedTaskDescription: { type: String, default: null },
     roleAssignedAt: { type: Date, default: null },
   }
 );

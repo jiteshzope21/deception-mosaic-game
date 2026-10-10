@@ -32,7 +32,7 @@ export const VALID_PHASE_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.ROUND_1_ACTIVE]: [GamePhase.ROUND_1_COMPLETE],
   [GamePhase.ROUND_1_COMPLETE]: [GamePhase.TRANSITION],
   [GamePhase.TRANSITION]: [GamePhase.ROUND_2_ACTIVE],
-  [GamePhase.ROUND_2_ACTIVE]: [GamePhase.BODY_REPORT, GamePhase.GAME_COMPLETE],
+  [GamePhase.ROUND_2_ACTIVE]: [GamePhase.BODY_REPORT, GamePhase.MOVE_TO_VOTING, GamePhase.GAME_COMPLETE],
   [GamePhase.BODY_REPORT]: [GamePhase.MOVE_TO_VOTING],
   [GamePhase.MOVE_TO_VOTING]: [GamePhase.VOTING],
   [GamePhase.VOTING]: [GamePhase.ROUND_2_ACTIVE, GamePhase.GAME_COMPLETE],

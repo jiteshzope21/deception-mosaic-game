@@ -30,7 +30,7 @@ export const GAME_CONSTANTS = {
   // Timers (all in seconds)
   ROUND_1_DURATION: 240,       // 4:00
   TRANSITION_DURATION: 60,     // 1:00
-  ROUND_2_DURATION: 420,       // 7:00
+  ROUND_2_DURATION: 360,       // 6:00
   BODY_REPORT_DURATION: 20,    // 0:20
   MOVE_TO_VOTING_DURATION: 15, // 0:15
   VOTING_DURATION: 15,         // 0:15
@@ -56,12 +56,42 @@ export const GAME_CONSTANTS = {
 
   // Default physical tasks
   DEFAULT_TASKS: [
-    { zoneNumber: 1, taskName: 'Hidden Keyboard Typing Test' },
-    { zoneNumber: 2, taskName: 'Ring Pass Arena' },
-    { zoneNumber: 3, taskName: 'Mechanical Car Assembly' },
-    { zoneNumber: 4, taskName: 'Code Debugging + USB Transfer' },
-    { zoneNumber: 5, taskName: 'Breadboard Circuit Assembly' },
-    { zoneNumber: 6, taskName: 'Deep Learning Algorithm Builder' },
+    {
+      zoneNumber: 1,
+      zoneName: 'Zone 01 — Terminal Alpha',
+      taskName: 'Hidden Keyboard Typing Test',
+      description: 'Locate the concealed physical keyboard in Zone 01. Transcribe the encrypted system verification passphrase on the offline terminal within 60 seconds without backspacing errors.',
+    },
+    {
+      zoneNumber: 2,
+      zoneName: 'Zone 02 — Kinetic Arena',
+      taskName: 'Ring Pass Arena',
+      description: 'Navigate the conductive copper wand loop through the twisting high-voltage wire maze from Start to Finish without triggering the alarm buzzer.',
+    },
+    {
+      zoneNumber: 3,
+      zoneName: 'Zone 03 — Robotics Bay',
+      taskName: 'Mechanical Car Assembly',
+      description: 'Assemble the 4-wheel gear transmission chassis, mount the battery pack securely, and test wheel alignment on the calibration ramp.',
+    },
+    {
+      zoneNumber: 4,
+      zoneName: 'Zone 04 — Hardware Hub',
+      taskName: 'Code Debugging + USB Transfer',
+      description: 'Identify the syntax error on the offline diagnostic station, patch the binary payload, and flash the patched firmware to the USB key.',
+    },
+    {
+      zoneNumber: 5,
+      zoneName: 'Zone 05 — Circuit Workshop',
+      taskName: 'Breadboard Circuit Assembly',
+      description: 'Wire the 555-timer IC circuit on the breadboard, insert the electrolytic capacitor in correct polarity, and confirm LED oscillation.',
+    },
+    {
+      zoneNumber: 6,
+      zoneName: 'Zone 06 — Neural Vault',
+      taskName: 'Deep Learning Algorithm Builder',
+      description: 'Arrange the physical neural network layer blocks in correct pipeline order (Input -> Conv2D -> BatchNorm -> Dense -> Output) on the magnetic board.',
+    },
   ] as const,
 } as const;
 

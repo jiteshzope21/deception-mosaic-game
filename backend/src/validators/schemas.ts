@@ -143,6 +143,7 @@ export const killSubmissionSchema = z.object({
 });
 
 export const bodyReportSubmissionSchema = z.object({
+  victimPlayerId: z.string().trim().optional(),
   clientActionId: z.string().optional(),
 });
 

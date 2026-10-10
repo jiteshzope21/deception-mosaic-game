@@ -67,11 +67,8 @@ export default function Round1PlayerPage() {
     const me = d.myPlayer;
     if (me) setLives(me.lives);
 
-    if (d.phase === GAME_PHASE.TRANSITION) {
-      navigate('/player/transition', { replace: true });
-      return;
-    }
     if (
+      d.phase === GAME_PHASE.TRANSITION ||
       d.phase === GAME_PHASE.ROUND_2_ACTIVE ||
       d.phase === GAME_PHASE.BODY_REPORT ||
       d.phase === GAME_PHASE.MOVE_TO_VOTING ||
@@ -132,9 +129,8 @@ export default function Round1PlayerPage() {
     });
 
     const unsubPhase = subscribeToEvent<any>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
-      if (data?.to === GAME_PHASE.TRANSITION) {
-        navigate('/player/transition', { replace: true });
-      } else if (
+      if (
+        data?.to === GAME_PHASE.TRANSITION ||
         data?.to === GAME_PHASE.ROUND_2_ACTIVE ||
         data?.to === GAME_PHASE.BODY_REPORT ||
         data?.to === GAME_PHASE.MOVE_TO_VOTING ||
