@@ -15,17 +15,46 @@ export function createApp() {
   const app = express();
 
   // ── Security headers ──────────────────────────────────────────────────────
-  app.use(helmet());
-
-  // ── CORS ──────────────────────────────────────────────────────────────────
   app.use(
-    cors({
-      origin: config.cors.allowedOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     })
   );
+
+  // ── Private Network Access & Preflight Headers ────────────────────────────
+  // Allows secure browser contexts (e.g. Netlify on HTTPS) to access localhost in dev
+  app.use((req, res, next) => {
+    if (req.headers['access-control-request-private-network']) {
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    next();
+  });
+
+  // ── CORS ──────────────────────────────────────────────────────────────────
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Check configured origins
+      if (config.cors.allowedOrigins.includes(origin) || config.cors.allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      // Allow any Netlify domain or localhost origin
+      if (origin.endsWith('.netlify.app') || origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Request-Private-Network'],
+  };
+
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
 
   // ── Rate limiting ─────────────────────────────────────────────────────────
   // Dedicated auth limiter for login endpoint (brute-force defense)

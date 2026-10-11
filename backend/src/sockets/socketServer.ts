@@ -48,7 +48,16 @@ export function getIo(): SocketServer | null {
 export function createSocketServer(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: config.cors.allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (config.cors.allowedOrigins.includes(origin) || config.cors.allowedOrigins.includes('*')) {
+          return callback(null, true);
+        }
+        if (origin.endsWith('.netlify.app') || origin.startsWith('http://localhost:')) {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
