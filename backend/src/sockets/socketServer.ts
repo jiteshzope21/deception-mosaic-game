@@ -53,7 +53,7 @@ export function createSocketServer(httpServer: HttpServer): SocketServer {
         if (config.cors.allowedOrigins.includes(origin) || config.cors.allowedOrigins.includes('*')) {
           return callback(null, true);
         }
-        if (origin.endsWith('.netlify.app') || origin.startsWith('http://localhost:')) {
+        if (origin.endsWith('.netlify.app') || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost:')) {
           return callback(null, true);
         }
         return callback(null, false);

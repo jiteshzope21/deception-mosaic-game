@@ -41,8 +41,8 @@ export function createApp() {
         return callback(null, true);
       }
 
-      // Allow any Netlify domain or localhost origin
-      if (origin.endsWith('.netlify.app') || origin.startsWith('http://localhost:')) {
+      // Allow any Netlify, Vercel domain, or localhost origin
+      if (origin.endsWith('.netlify.app') || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost:')) {
         return callback(null, true);
       }
 
