@@ -126,6 +126,7 @@ export interface PlayerGameStateData {
   votingCycle?: number;
   myVotedFor?: string | null;
   hasReportedBody?: boolean;
+  reportedVictimIds?: string[];
   myPlayer: {
     id: string;
     playerName: string;

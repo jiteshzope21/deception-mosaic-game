@@ -22,7 +22,7 @@ export const GAME_DEFAULTS = {
   round_1_duration_seconds: 240,
   transition_duration_seconds: 60,
   round_2_duration_seconds: 420,
-  body_report_duration_seconds: 20,
+  body_report_duration_seconds: 30,
   move_to_voting_duration_seconds: 15,
   voting_duration_seconds: 15,
   starting_lives: 2,

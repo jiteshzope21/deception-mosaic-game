@@ -31,6 +31,7 @@ import {
 import { GAME_CONSTANTS } from '../config/constants';
 import { emitToGame, emitToGm, emitToPlayer } from '../sockets/socketServer';
 import { logger } from '../utils/logger';
+import { ErrorCode } from '../types/auth.types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ export async function getGameForGm(gameId: string) {
         id: b._id,
         killId: b.killId,
         reporterPlayerId: b.reporterPlayerId,
-        reporterPlayerName: reporter?.playerName ?? 'System (Auto)',
+        reporterPlayerName: reporter?.playerName ?? (b.status === BodyReportStatus.PENDING ? 'Pending Discovery' : 'System (Auto)'),
         status: b.status,
         reportedAt: b.reportedAt,
       };
@@ -425,7 +426,7 @@ export async function getGameForPlayer(gameId: string, playerId: string) {
       eligibleVotersCount,
     },
     puzzleCompleted: game.puzzleCompleted,
-    puzzlePieces: game.puzzlePieces.map((p) => ({
+    puzzlePieces: (game.puzzlePieces || []).map((p) => ({
       pieceIndex: p.pieceIndex,
       isUnlocked: p.isUnlocked,
     })),
@@ -454,6 +455,14 @@ export async function getGameForPlayer(gameId: string, playerId: string) {
       lives: p.lives,
       // No role, no assignedTaskZone, no assignedTaskName!
     })),
+    reportedVictimIds: game.bodyReports
+      .filter((b) => b.status === BodyReportStatus.ACCEPTED || b.status === BodyReportStatus.AUTO)
+      .map((b) => {
+        if (b.victimPlayerId) return String(b.victimPlayerId);
+        const k = b.killId ? game.kills.id(b.killId) : null;
+        return k ? String(k.victimPlayerId) : null;
+      })
+      .filter(Boolean) as string[],
     // Read-only reveal upon game completion
     completedSummary:
       game.phase === GamePhase.GAME_COMPLETE
@@ -829,12 +838,15 @@ export async function checkGameTimers(game: IGame): Promise<boolean> {
       return true;
     }
 
-    // Body report timer (20s)
+    // Body report timer (30s)
     if (game.phase === GamePhase.BODY_REPORT && game.phaseEndsAt && now.getTime() >= game.phaseEndsAt.getTime()) {
       logger.info(`[GameService] Body report window expired for game ${game.gameCode}. Auto-advancing to movement.`);
       const pendingReport = game.bodyReports.find((b) => b.status === BodyReportStatus.PENDING);
+      let victim: any = null;
       if (pendingReport) {
         pendingReport.status = BodyReportStatus.AUTO;
+        const victimKill = pendingReport.killId ? game.kills.id(pendingReport.killId) : null;
+        victim = victimKill ? game.players.id(victimKill.victimPlayerId) : null;
       }
 
       const moveDuration = game.configSnapshot?.moveToVotingDurationSeconds ?? 15;
@@ -853,17 +865,38 @@ export async function checkGameTimers(game: IGame): Promise<boolean> {
 
       await game.save();
 
-      emitToGame(String(game._id), SocketEvent.BODY_REPORT_EXPIRED, { message: 'Body report window expired.' });
-      emitToGame(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, {
+      const expiredPayload = { message: 'Body report window expired.' };
+      const reportPayload = {
+        reporterPlayerId: null,
+        reporterPlayerName: 'System (Auto)',
+        victimPlayerId: victim?._id ?? null,
+        victimPlayerName: victim?.playerName ?? null,
+        reportedAt: now.toISOString(),
+        auto: true,
+      };
+      const movePayload = {
         phaseEndsAt: moveEndsAt,
         round2EndsAt: game.round2EndsAt,
-      });
-      emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+        reporterPlayerName: 'System (Auto)',
+      };
+      const phasePayload = {
         from: GamePhase.BODY_REPORT,
         to: GamePhase.MOVE_TO_VOTING,
         phaseEndsAt: moveEndsAt,
         round2EndsAt: game.round2EndsAt,
-      });
+      };
+
+      emitToGame(String(game._id), SocketEvent.BODY_REPORT_EXPIRED, expiredPayload);
+      emitToGm(String(game._id), SocketEvent.BODY_REPORT_EXPIRED, expiredPayload);
+
+      emitToGame(String(game._id), SocketEvent.BODY_REPORTED, reportPayload);
+      emitToGm(String(game._id), SocketEvent.BODY_REPORTED, reportPayload);
+
+      emitToGame(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, movePayload);
+      emitToGm(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, movePayload);
+
+      emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, phasePayload);
+      emitToGm(String(game._id), SocketEvent.PHASE_CHANGED, phasePayload);
       return true;
     }
 
@@ -1602,12 +1635,14 @@ export async function pauseGame(gameId: string): Promise<IGame> {
 
   await game.save();
 
-  emitToGame(String(game._id), SocketEvent.GAME_PAUSED, {
+  const pausedPayload = {
     gameId: game._id,
     phase: game.phase,
     pausedRemainingMs: game.pausedRemainingMs,
     pausedRound2RemainingMs: game.pausedRound2RemainingMs,
-  });
+  };
+  emitToGame(String(game._id), SocketEvent.GAME_PAUSED, pausedPayload);
+  emitToGm(String(game._id), SocketEvent.GAME_PAUSED, pausedPayload);
 
   return game;
 }
@@ -1650,12 +1685,14 @@ export async function resumeGame(gameId: string): Promise<IGame> {
 
   await game.save();
 
-  emitToGame(String(game._id), SocketEvent.GAME_RESUMED, {
+  const resumedPayload = {
     gameId: game._id,
     phase: game.phase,
     phaseEndsAt: game.phaseEndsAt,
     round2EndsAt: game.round2EndsAt,
-  });
+  };
+  emitToGame(String(game._id), SocketEvent.GAME_RESUMED, resumedPayload);
+  emitToGm(String(game._id), SocketEvent.GAME_RESUMED, resumedPayload);
 
   return game;
 }
@@ -2223,7 +2260,7 @@ export async function recordKill(params: {
   };
   game.kills.push(killDoc as any);
 
-  const bodyReportDuration = game.configSnapshot?.bodyReportDurationSeconds ?? 20;
+  const bodyReportDuration = game.configSnapshot?.bodyReportDurationSeconds ?? GAME_CONSTANTS.BODY_REPORT_DURATION;
   const bodyReportEndsAt = new Date(now.getTime() + bodyReportDuration * 1000);
 
   const bodyReportDoc = {
@@ -2295,18 +2332,22 @@ export async function recordKill(params: {
     status: PlayerStatus.ELIMINATED,
   });
 
-  emitToGame(String(game._id), SocketEvent.BODY_REPORT_STARTED, {
+  const bodyReportStartedPayload = {
     phaseEndsAt: bodyReportEndsAt,
     round2EndsAt: game.round2EndsAt,
     victimPlayerName: victim.playerName,
-  });
+  };
+  emitToGame(String(game._id), SocketEvent.BODY_REPORT_STARTED, bodyReportStartedPayload);
+  emitToGm(String(game._id), SocketEvent.BODY_REPORT_STARTED, bodyReportStartedPayload);
 
-  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+  const phaseChangePayload = {
     from: GamePhase.ROUND_2_ACTIVE,
     to: GamePhase.BODY_REPORT,
     phaseEndsAt: bodyReportEndsAt,
     round2EndsAt: game.round2EndsAt,
-  });
+  };
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, phaseChangePayload);
+  emitToGm(String(game._id), SocketEvent.PHASE_CHANGED, phaseChangePayload);
 
   return {
     success: true,
@@ -2329,6 +2370,22 @@ export async function reportBody(params: {
   if (!game) {
     const error = new Error('Game not found.');
     (error as any).statusCode = 404;
+    (error as any).code = ErrorCode.GAME_NOT_FOUND;
+    throw error;
+  }
+
+  // 1 & 2. Verify reporter belongs to game and is alive
+  const reporter = game.players.id(reporterPlayerId);
+  if (!reporter) {
+    const error = new Error('Player not in this game.');
+    (error as any).statusCode = 403;
+    (error as any).code = ErrorCode.FORBIDDEN;
+    throw error;
+  }
+  if (reporter.status !== PlayerStatus.ALIVE) {
+    const error = new Error('Eliminated players cannot report a body.');
+    (error as any).statusCode = 403;
+    (error as any).code = ErrorCode.PLAYER_ELIMINATED;
     throw error;
   }
 
@@ -2339,13 +2396,7 @@ export async function reportBody(params: {
     throw error;
   }
 
-  if (game.phase === GamePhase.GAME_COMPLETE) {
-    const error = new Error('Cannot report body: Game is completed and read-only.');
-    (error as any).statusCode = 400;
-    throw error;
-  }
-
-  // Idempotency check: if clientActionId was already submitted, return cached success
+  // 7. Idempotency check: if clientActionId was already submitted, return cached success
   if (clientActionId) {
     const dup = game.bodyReports.find((b: any) => b.clientActionId === clientActionId);
     if (dup) {
@@ -2359,41 +2410,28 @@ export async function reportBody(params: {
     }
   }
 
-  // If another player already reported and game transitioned to MOVE_TO_VOTING concurrently
-  if (game.phase === GamePhase.MOVE_TO_VOTING) {
-    return {
-      success: true,
-      phase: game.phase,
-      phaseEndsAt: game.phaseEndsAt,
-      round2EndsAt: game.round2EndsAt,
-      alreadyTransitioned: true,
-    };
-  }
-
-  await checkGameTimers(game);
-  if (game.phase !== GamePhase.BODY_REPORT && game.phase !== GamePhase.ROUND_2_ACTIVE) {
-    const error = new Error(`Cannot report body: Game is in phase ${game.phase}, expected BODY_REPORT or ROUND_2_ACTIVE.`);
-    (error as any).statusCode = 400;
-    (error as any).code = 'INVALID_PHASE_FOR_REPORT';
-    throw error;
-  }
-
-  const reporter = game.players.id(reporterPlayerId);
-  if (!reporter) {
-    const error = new Error('Player not in this game.');
-    (error as any).statusCode = 403;
-    throw error;
-  }
-  if (reporter.status !== PlayerStatus.ALIVE) {
-    const error = new Error('Eliminated players cannot report a body.');
-    (error as any).statusCode = 403;
-    (error as any).code = 'PLAYER_ELIMINATED';
-    throw error;
+  // Helper to generate phase-specific duplicate report message
+  function getDuplicateReportMessage(): string {
+    if (game!.phase === GamePhase.VOTING) {
+      const cycle = game!.votingCycle || 1;
+      return `BODY ALREADY REPORTED — VOTING PHASE ${cycle} IN PROGRESS`;
+    }
+    if (game!.phase === GamePhase.MOVE_TO_VOTING) {
+      return 'BODY ALREADY REPORTED — MOVEMENT TO VOTING IN PROGRESS';
+    }
+    if (game!.phase === GamePhase.GAME_COMPLETE) {
+      return 'BODY ALREADY REPORTED — GAME COMPLETED';
+    }
+    if (game!.phase === GamePhase.ROUND_2_ACTIVE) {
+      return 'BODY ALREADY REPORTED — ROUND 2 IN PROGRESS';
+    }
+    return `BODY ALREADY REPORTED — PHASE ${game!.phase} IN PROGRESS`;
   }
 
   let victim: any = null;
   let victimKill: any = null;
 
+  // 3 & 4. Victim checks and duplicate report check
   if (victimPlayerId) {
     victim = game.players.id(victimPlayerId);
     if (!victim) {
@@ -2423,9 +2461,9 @@ export async function reportBody(params: {
     });
 
     if (alreadyReported) {
-      const error = new Error('This body has already been reported.');
-      (error as any).statusCode = 400;
-      (error as any).code = 'BODY_ALREADY_REPORTED';
+      const error = new Error(getDuplicateReportMessage());
+      (error as any).statusCode = 409;
+      (error as any).code = ErrorCode.BODY_ALREADY_REPORTED;
       throw error;
     }
   } else {
@@ -2435,11 +2473,69 @@ export async function reportBody(params: {
       victimKill = pendingReport.killId ? game.kills.id(pendingReport.killId) : null;
       victim = victimKill ? game.players.id(victimKill.victimPlayerId) : null;
     } else {
+      if (game.phase === GamePhase.VOTING) {
+        const error = new Error(getDuplicateReportMessage());
+        (error as any).statusCode = 409;
+        (error as any).code = ErrorCode.BODY_ALREADY_REPORTED;
+        throw error;
+      }
+      if (game.phase === GamePhase.MOVE_TO_VOTING) {
+        return {
+          success: true,
+          phase: game.phase,
+          phaseEndsAt: game.phaseEndsAt,
+          round2EndsAt: game.round2EndsAt,
+          alreadyTransitioned: true,
+        };
+      }
       const error = new Error('Please select an eliminated player body to report.');
       (error as any).statusCode = 400;
       (error as any).code = 'VICTIM_REQUIRED';
       throw error;
     }
+  }
+
+  // 8. If another player or auto-timer already transitioned to MOVE_TO_VOTING concurrently
+  if (game.phase === GamePhase.MOVE_TO_VOTING) {
+    return {
+      success: true,
+      phase: game.phase,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+      alreadyTransitioned: true,
+    };
+  }
+
+  // 6. Game ended check
+  if (game.phase === GamePhase.GAME_COMPLETE) {
+    const error = new Error('Cannot report body: Game is completed and read-only.');
+    (error as any).statusCode = 400;
+    (error as any).code = 'GAME_COMPLETED';
+    throw error;
+  }
+
+  // 5. Check timers and verify current phase permits a new report
+  await checkGameTimers(game);
+  if ((game.phase as GamePhase) === GamePhase.MOVE_TO_VOTING) {
+    return {
+      success: true,
+      phase: game.phase,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+      alreadyTransitioned: true,
+    };
+  }
+  if (game.phase !== GamePhase.BODY_REPORT && game.phase !== GamePhase.ROUND_2_ACTIVE) {
+    if (game.phase === GamePhase.VOTING) {
+      const error = new Error(getDuplicateReportMessage());
+      (error as any).statusCode = 409;
+      (error as any).code = ErrorCode.BODY_ALREADY_REPORTED;
+      throw error;
+    }
+    const error = new Error(`Cannot report body: Game is in phase ${game.phase}, expected BODY_REPORT or ROUND_2_ACTIVE.`);
+    (error as any).statusCode = 400;
+    (error as any).code = ErrorCode.INVALID_PHASE_FOR_REPORT;
+    throw error;
   }
 
   // Find or create pending body report

@@ -56,7 +56,7 @@ export default function GameConfigurationPanel() {
     round1DurationSeconds: 240,
     transitionDurationSeconds: 60,
     round2DurationSeconds: 420,
-    bodyReportDurationSeconds: 20,
+    bodyReportDurationSeconds: 30,
     moveToVotingDurationSeconds: 15,
     votingDurationSeconds: 15,
     startingLives: 2,

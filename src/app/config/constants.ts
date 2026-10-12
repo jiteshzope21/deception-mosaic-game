@@ -14,7 +14,7 @@ export const GAME_DEFAULTS: GameConfigDefaults = {
   round_1_duration_seconds: 240,       // 4:00
   transition_duration_seconds: 60,     // 1:00
   round_2_duration_seconds: 420,       // 7:00
-  body_report_duration_seconds: 20,    // 0:20
+  body_report_duration_seconds: 30,    // 0:30
   move_to_voting_duration_seconds: 15, // 0:15
   voting_duration_seconds: 15,         // 0:15
   starting_lives: 2,

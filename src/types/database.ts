@@ -24,7 +24,7 @@ export interface GameConfiguration {
   round_1_duration_seconds: number;       // default 240
   transition_duration_seconds: number;    // default 60
   round_2_duration_seconds: number;       // default 420
-  body_report_duration_seconds: number;   // default 20
+  body_report_duration_seconds: number;   // default 30
   move_to_voting_duration_seconds: number; // default 15
   voting_duration_seconds: number;        // default 15
   // Lives

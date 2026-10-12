@@ -92,6 +92,8 @@ export const ERROR_CODE = {
   PLAYER_NOT_ALIVE: 'PLAYER_NOT_ALIVE',
   MAX_KILLS_REACHED: 'MAX_KILLS_REACHED',
   DUPLICATE_KILL: 'DUPLICATE_KILL',
+  BODY_ALREADY_REPORTED: 'BODY_ALREADY_REPORTED',
+  INVALID_PHASE_FOR_REPORT: 'INVALID_PHASE_FOR_REPORT',
   CANNOT_VOTE: 'CANNOT_VOTE',
   ALREADY_VOTED: 'ALREADY_VOTED',
   // Generic
@@ -201,7 +203,7 @@ export interface GameConfigDefaults {
   round_1_duration_seconds: 240;
   transition_duration_seconds: 60;
   round_2_duration_seconds: 420;
-  body_report_duration_seconds: 20;
+  body_report_duration_seconds: 30;
   move_to_voting_duration_seconds: 15;
   voting_duration_seconds: 15;
   starting_lives: 2;

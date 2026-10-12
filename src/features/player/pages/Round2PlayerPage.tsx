@@ -209,6 +209,7 @@ export default function Round2PlayerPage() {
     setSelectedReportVictim('');
     if (!res.success) {
       setError(res.error?.message ?? 'Failed to report body');
+      void loadState();
     } else {
       void loadState();
     }
@@ -318,6 +319,9 @@ export default function Round2PlayerPage() {
   const alivePlayers = allPlayersList.filter(p => p.status === 'ALIVE');
   const aliveTargetsForVoting = alivePlayers.filter(p => p.id !== state.myPlayer.id);
   const aliveVictimsForKill = alivePlayers.filter(p => p.id !== state.myPlayer.id);
+  const unreportedBodies = allPlayersList.filter(
+    p => !p.isSelf && p.status === 'ELIMINATED' && !(state.reportedVictimIds || []).includes(p.id)
+  );
 
   return (
     <div className="min-h-screen bg-mosaic-dark text-white flex flex-col font-sans selection:bg-mosaic-accent/30 selection:text-white pb-28">
@@ -662,12 +666,12 @@ export default function Round2PlayerPage() {
             </p>
 
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {allPlayersList.filter(p => !p.isSelf && p.status === 'ELIMINATED').length === 0 ? (
+              {unreportedBodies.length === 0 ? (
                 <div className="p-4 text-center text-xs text-mosaic-muted border border-mosaic-border/40 rounded-xl bg-mosaic-dark/40">
-                  No eliminated player bodies found to report.
+                  No unreported bodies available.
                 </div>
               ) : (
-                allPlayersList.filter(p => !p.isSelf && p.status === 'ELIMINATED').map(p => (
+                unreportedBodies.map(p => (
                   <button
                     key={p.id}
                     onClick={() => setSelectedReportVictim(p.id)}
@@ -759,13 +763,13 @@ export default function Round2PlayerPage() {
           <div className="bg-mosaic-surface border-2 border-mosaic-border rounded-3xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl">
             <Radio className="w-12 h-12 text-mosaic-accent mx-auto animate-pulse" />
             <h2 className="text-xl font-black text-white uppercase tracking-wide">
-              Body Report Window
+              BODY REPORT WINDOW — 00:{String(Math.max(0, phaseSecsLeft)).padStart(2, '0')}
             </h2>
             <p className="text-xs text-mosaic-muted leading-relaxed">
-              A player was eliminated. Report the body to skip directly to the voting meeting, or auto-timer will expire.
+              An eliminated crewmate has been discovered in the facility. Report the body to proceed immediately to the voting area, or the automated system will report it when the window expires.
             </p>
             <div className="text-4xl font-mono font-black text-mosaic-accent tabular-nums">
-              {phaseSecsLeft}s
+              00:{String(Math.max(0, phaseSecsLeft)).padStart(2, '0')}
             </div>
             <button
               onClick={() => handleReportBody()}

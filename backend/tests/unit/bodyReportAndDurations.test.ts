@@ -3,6 +3,11 @@ import { Types } from 'mongoose';
 import { Game } from '../../src/models/Game.model';
 import {
   reportBody,
+  recordKill,
+  checkGameTimers,
+  pauseGame,
+  resumeGame,
+  getGameForPlayer,
   getGameHistory,
   getGameForGm,
   calculateElapsedSeconds,
@@ -59,6 +64,24 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
         assignedTaskZone: 2,
         assignedTaskName: 'Code Debugging',
       },
+      {
+        _id: new Types.ObjectId(),
+        playerName: 'DaveCrew',
+        role: PlayerRole.CREWMATE,
+        status: PlayerStatus.ALIVE,
+        lives: 2,
+        assignedTaskZone: 3,
+        assignedTaskName: 'Sensor Calibration',
+      },
+      {
+        _id: new Types.ObjectId(),
+        playerName: 'EveCrew',
+        role: PlayerRole.CREWMATE,
+        status: PlayerStatus.ALIVE,
+        lives: 2,
+        assignedTaskZone: 4,
+        assignedTaskName: 'Network Testing',
+      },
     ];
 
     const gameDoc: any = {
@@ -82,6 +105,7 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
       events: [],
       votes: [],
       qrMappings: [],
+      puzzlePieces: [],
       round2StartedAt: round2Start,
       round2EndsAt: masterEndsAt,
       phaseStartedAt: round2Start,
@@ -233,8 +257,10 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
       });
     });
 
-    it('reporting an already reported body is rejected safely with 400 BODY_ALREADY_REPORTED', async () => {
+    it('reporting an already reported body during voting phase 1 is rejected safely with 409 BODY_ALREADY_REPORTED and exact message', async () => {
       const gameDoc = createMockGame({
+        phase: GamePhase.VOTING,
+        votingCycle: 1,
         bodyReports: [
           {
             _id: new Types.ObjectId(),
@@ -255,8 +281,52 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
           victimPlayerId: victimId,
         })
       ).rejects.toMatchObject({
-        statusCode: 400,
+        statusCode: 409,
         code: 'BODY_ALREADY_REPORTED',
+        message: 'BODY ALREADY REPORTED — VOTING PHASE 1 IN PROGRESS',
+      });
+    });
+
+    it('reporting an already reported body during movement or game completion is rejected safely with 409 and phase message', async () => {
+      const gameDoc = createMockGame({
+        phase: GamePhase.MOVE_TO_VOTING,
+        bodyReports: [
+          {
+            _id: new Types.ObjectId(),
+            killId: null,
+            reporterPlayerId: new Types.ObjectId(crewmateId),
+            victimPlayerId: new Types.ObjectId(victimId),
+            status: BodyReportStatus.ACCEPTED,
+            reportedAt: new Date(),
+          },
+        ],
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      await expect(
+        reportBody({
+          gameId: mockGameId,
+          reporterPlayerId: imposterId,
+          victimPlayerId: victimId,
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'BODY_ALREADY_REPORTED',
+        message: 'BODY ALREADY REPORTED — MOVEMENT TO VOTING IN PROGRESS',
+      });
+
+      // Also verify completed phase returns 409 without HTTP 500
+      gameDoc.phase = GamePhase.GAME_COMPLETE;
+      await expect(
+        reportBody({
+          gameId: mockGameId,
+          reporterPlayerId: imposterId,
+          victimPlayerId: victimId,
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'BODY_ALREADY_REPORTED',
+        message: 'BODY ALREADY REPORTED — GAME COMPLETED',
       });
     });
 
@@ -394,6 +464,200 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
           victimPlayerId: victimId,
         })
       ).rejects.toThrow('DB connection lost');
+    });
+  });
+
+  describe('Part 3: 30-Second Body Discovery Window, Convergence & State Synchronization', () => {
+    it('FIX 1: Successful kill eliminates victim, starts 30-second discovery window, and does not immediately report body', async () => {
+      const now = new Date('2026-10-12T10:02:00.000Z');
+      vi.setSystemTime(now);
+
+      const gameDoc = createMockGame({
+        kills: [],
+        bodyReports: [],
+        phase: GamePhase.ROUND_2_ACTIVE,
+        configSnapshot: {
+          bodyReportDurationSeconds: 30,
+          moveToVotingDurationSeconds: 15,
+        },
+      });
+      // Set victim to alive initially
+      gameDoc.players.id(victimId).status = PlayerStatus.ALIVE;
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      const killResult = await recordKill({
+        gameId: mockGameId,
+        imposterPlayerId: imposterId,
+        victimPlayerId: victimId,
+      });
+
+      expect(killResult.success).toBe(true);
+      expect(killResult.phase).toBe(GamePhase.BODY_REPORT);
+      expect(gameDoc.players.id(victimId).status).toBe(PlayerStatus.ELIMINATED);
+      expect(gameDoc.kills).toHaveLength(1);
+
+      // Body report document is PENDING (not yet reported)
+      expect(gameDoc.bodyReports).toHaveLength(1);
+      const reportDoc = gameDoc.bodyReports[0];
+      expect(reportDoc.status).toBe(BodyReportStatus.PENDING);
+      expect(reportDoc.reporterPlayerId).toBeNull();
+
+      // 30-second server deadline persisted
+      expect(gameDoc.phaseEndsAt).toBeDefined();
+      const diffMs = gameDoc.phaseEndsAt.getTime() - now.getTime();
+      expect(diffMs).toBe(30 * 1000);
+
+      // GM sees 'Pending Discovery' not 'System (Auto)'
+      const gmView = await getGameForGm(mockGameId);
+      expect(gmView!.bodyReports[0].reporterPlayerName).toBe('Pending Discovery');
+      expect(gmView!.bodyReports[0].status).toBe(BodyReportStatus.PENDING);
+
+      // GM and Game received appropriate events
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORT_STARTED, expect.anything());
+      expect(emitToGameSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORT_STARTED, expect.anything());
+    });
+
+    it('FIX 1: Manual report during 30s window immediately advances to MOVE_TO_VOTING', async () => {
+      const now = new Date('2026-10-12T10:02:00.000Z');
+      const gameDoc = createMockGame({
+        phase: GamePhase.BODY_REPORT,
+        phaseEndsAt: new Date(now.getTime() + 30000),
+        bodyReports: [
+          {
+            _id: new Types.ObjectId(),
+            killId: null,
+            reporterPlayerId: null,
+            status: BodyReportStatus.PENDING,
+            reportedAt: now,
+          },
+        ],
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      const reportResult = await reportBody({
+        gameId: mockGameId,
+        reporterPlayerId: crewmateId,
+        victimPlayerId: victimId,
+      });
+
+      expect(reportResult.success).toBe(true);
+      expect(reportResult.phase).toBe(GamePhase.MOVE_TO_VOTING);
+      expect(gameDoc.bodyReports[0].status).toBe(BodyReportStatus.ACCEPTED);
+      expect(gameDoc.bodyReports[0].reporterPlayerId.toString()).toBe(crewmateId);
+
+      // Sockets emitted to both GM and player
+      expect(emitToGameSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.MOVE_TO_VOTING_STARTED, expect.anything());
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.MOVE_TO_VOTING_STARTED, expect.anything());
+    });
+
+    it('FIX 1: Automatic report when 30s window expires transitions to MOVE_TO_VOTING with BodyReportStatus.AUTO', async () => {
+      const killTime = new Date('2026-10-12T10:02:00.000Z');
+      const expiryTime = new Date(killTime.getTime() + 30000);
+
+      const gameDoc = createMockGame({
+        phase: GamePhase.BODY_REPORT,
+        phaseEndsAt: expiryTime,
+        bodyReports: [
+          {
+            _id: new Types.ObjectId(),
+            killId: null,
+            reporterPlayerId: null,
+            status: BodyReportStatus.PENDING,
+            reportedAt: killTime,
+          },
+        ],
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      // Simulate clock after 30s window
+      vi.setSystemTime(new Date(expiryTime.getTime() + 1000));
+
+      const timerExpired = await checkGameTimers(gameDoc);
+      expect(timerExpired).toBe(true);
+      expect(gameDoc.phase).toBe(GamePhase.MOVE_TO_VOTING);
+      expect(gameDoc.bodyReports[0].status).toBe(BodyReportStatus.AUTO);
+
+      // Emits to both Game and GM
+      expect(emitToGameSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORT_EXPIRED, expect.anything());
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORT_EXPIRED, expect.anything());
+      expect(emitToGameSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORTED, expect.objectContaining({ auto: true }));
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.BODY_REPORTED, expect.objectContaining({ auto: true }));
+    });
+
+    it('FIX 1 & 2: Manual report racing with auto-expiry converges safely without duplicate transitions', async () => {
+      const now = new Date('2026-10-12T10:02:30.000Z');
+      const gameDoc = createMockGame({
+        phase: GamePhase.MOVE_TO_VOTING, // Auto timer just completed transition
+        bodyReports: [
+          {
+            _id: new Types.ObjectId(),
+            killId: null,
+            reporterPlayerId: null,
+            status: BodyReportStatus.AUTO,
+            reportedAt: now,
+          },
+        ],
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      // Concurrent manual report arriving right after
+      const res = await reportBody({
+        gameId: mockGameId,
+        reporterPlayerId: crewmateId,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.alreadyTransitioned).toBe(true);
+      expect(res.phase).toBe(GamePhase.MOVE_TO_VOTING);
+    });
+
+    it('FIX 2: getGameForPlayer includes reportedVictimIds for frontend list filtering', async () => {
+      const gameDoc = createMockGame({
+        bodyReports: [
+          {
+            _id: new Types.ObjectId(),
+            killId: new Types.ObjectId(),
+            reporterPlayerId: new Types.ObjectId(crewmateId),
+            victimPlayerId: new Types.ObjectId(victimId),
+            status: BodyReportStatus.ACCEPTED,
+            reportedAt: new Date(),
+          },
+        ],
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      const playerState = await getGameForPlayer(mockGameId, crewmateId);
+      expect(playerState).not.toBeNull();
+      expect(playerState!.reportedVictimIds).toBeDefined();
+      expect(playerState!.reportedVictimIds).toContain(victimId);
+    });
+
+    it('FIX 4: GM pause and resume preserve remaining discovery window duration', async () => {
+      const now = new Date('2026-10-12T10:02:00.000Z');
+      vi.setSystemTime(now);
+
+      const gameDoc = createMockGame({
+        phase: GamePhase.BODY_REPORT,
+        phaseEndsAt: new Date(now.getTime() + 25000), // 25s remaining
+        isPaused: false,
+      });
+      vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
+
+      await pauseGame(mockGameId);
+      expect(gameDoc.isPaused).toBe(true);
+      expect(gameDoc.pausedRemainingMs).toBe(25000);
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.GAME_PAUSED, expect.anything());
+
+      // Advance clock while paused
+      vi.setSystemTime(new Date(now.getTime() + 100000));
+
+      await resumeGame(mockGameId);
+      expect(gameDoc.isPaused).toBe(false);
+      expect(gameDoc.phaseEndsAt).toBeDefined();
+      // Remaining time is still 25s from resumption
+      const remainingMs = gameDoc.phaseEndsAt!.getTime() - Date.now();
+      expect(remainingMs).toBe(25000);
+      expect(emitToGmSpy).toHaveBeenCalledWith(mockGameId, SocketEvent.GAME_RESUMED, expect.anything());
     });
   });
 });
