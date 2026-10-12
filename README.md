@@ -139,14 +139,14 @@ Configure `backend/.env`:
 ```env
 MONGODB_URI=mongodb://localhost:27017/deception
 MONGODB_DB_NAME=deception
-JWT_SECRET=use_a_long_cryptographically_secure_random_string_here_min_64_chars
+JWT_SECRET=your_long_random_jwt_secret_minimum_64_characters
 JWT_GM_EXPIRY=8h
 JWT_PLAYER_EXPIRY=4h
 PORT=3001
 NODE_ENV=development
 CORS_ALLOWED_ORIGINS=http://localhost:5173
-GM_EMAIL=organizer@adg.org
-GM_PASSWORD=ChangeMe_ADG2026!
+GM_EMAIL=gm@example.com
+GM_PASSWORD=your_secure_gm_password_here
 GM_DISPLAY_NAME=Game Master
 ```
 

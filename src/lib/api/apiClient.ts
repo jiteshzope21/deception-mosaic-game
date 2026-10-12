@@ -15,7 +15,7 @@ import { ERROR_CODE } from '@/types/app';
 const TOKEN_KEY = 'mosaic_token';
 
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api')
 ).replace(/\/$/, '');
 
 export function getStoredToken(): string | null {

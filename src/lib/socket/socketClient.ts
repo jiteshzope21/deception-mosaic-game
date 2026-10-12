@@ -10,7 +10,7 @@ import { getStoredToken } from '../api/apiClient';
 import { SocketEvent, type SocketEventName } from '@/types/enums';
 
 const SOCKET_URL = (
-  import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
+  import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 ).replace(/\/$/, '');
 
 let socketInstance: Socket | null = null;
