@@ -64,11 +64,16 @@ export async function gmLogin(req: Request, res: Response): Promise<void> {
   }
 }
 
-// ─── GM Logout ────────────────────────────────────────────────────────────────
+// ─── Logout ───────────────────────────────────────────────────────────────────
 
 export async function gmLogout(_req: Request, res: Response): Promise<void> {
   res.clearCookie('mosaic_token');
   sendSuccess(res, { message: 'Logged out.' });
+}
+
+export async function playerLogout(_req: Request, res: Response): Promise<void> {
+  res.clearCookie('mosaic_token');
+  sendSuccess(res, { message: 'Player logged out successfully.' });
 }
 
 // ─── GM Profile ───────────────────────────────────────────────────────────────
@@ -129,45 +134,54 @@ export async function playerJoin(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // If initial join in LOBBY, claim the slot
-    if (playerSlot.status === PlayerStatus.REGISTERED) {
-      playerSlot.status = PlayerStatus.JOINED;
-      playerSlot.joinedAt = new Date();
-
-      game.events.push({
-        eventType: GameEventType.PLAYER_JOINED,
-        playerId: playerSlot._id,
-        eventData: { playerName: playerSlot.playerName },
-        occurredAt: new Date(),
-      } as any);
-
-      await game.save();
-
-      const lobbyPayload = {
-        gameId: game._id,
-        gameCode: game.gameCode,
-        players: game.players.map((p) => ({
-          id: p._id,
-          playerName: p.playerName,
-          status: p.status,
-          isClaimed: p.status !== PlayerStatus.REGISTERED,
-          joinedAt: p.joinedAt,
-        })),
-      };
-
-      // Emit Realtime updates to GM and waiting players
-      emitToGm(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
-      emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
-
-      emitToGm(String(game._id), SocketEvent.PLAYER_JOINED, {
-        playerId: playerSlot._id,
-        playerName: playerSlot.playerName,
-      });
-      emitToGame(String(game._id), SocketEvent.PLAYER_JOINED, {
-        playerId: playerSlot._id,
-        playerName: playerSlot.playerName,
-      });
+    // A name already claimed by another player in that same active game must remain unavailable
+    if (playerSlot.status !== PlayerStatus.REGISTERED) {
+      sendError(
+        res,
+        ErrorCode.PLAYER_ALREADY_JOINED,
+        'This player name has already been claimed in this game.',
+        409
+      );
+      return;
     }
+
+    // If initial join in LOBBY, claim the slot
+    playerSlot.status = PlayerStatus.JOINED;
+    playerSlot.joinedAt = new Date();
+
+    game.events.push({
+      eventType: GameEventType.PLAYER_JOINED,
+      playerId: playerSlot._id,
+      eventData: { playerName: playerSlot.playerName },
+      occurredAt: new Date(),
+    } as any);
+
+    await game.save();
+
+    const lobbyPayload = {
+      gameId: game._id,
+      gameCode: game.gameCode,
+      players: game.players.map((p) => ({
+        id: p._id,
+        playerName: p.playerName,
+        status: p.status,
+        isClaimed: p.status !== PlayerStatus.REGISTERED,
+        joinedAt: p.joinedAt,
+      })),
+    };
+
+    // Emit Realtime updates to GM and waiting players
+    emitToGm(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
+    emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
+
+    emitToGm(String(game._id), SocketEvent.PLAYER_JOINED, {
+      playerId: playerSlot._id,
+      playerName: playerSlot.playerName,
+    });
+    emitToGame(String(game._id), SocketEvent.PLAYER_JOINED, {
+      playerId: playerSlot._id,
+      playerName: playerSlot.playerName,
+    });
 
     // Issue player JWT for this specific player slot
     const token = signPlayerToken(

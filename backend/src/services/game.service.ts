@@ -264,7 +264,10 @@ export async function getActiveGame(): Promise<IGame | null> {
 }
 
 export async function getPublicLobbyByCode(gameCode: string) {
-  const game = await Game.findOne({ gameCode: gameCode.toUpperCase().trim() });
+  const game = await Game.findOne({
+    gameCode: gameCode.toUpperCase().trim(),
+    phase: { $ne: GamePhase.GAME_COMPLETE },
+  });
   if (!game) return null;
 
   return {

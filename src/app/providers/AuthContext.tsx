@@ -6,9 +6,9 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { getGmProfile, getPlayerProfile, gmLogin, logout as authLogout, playerJoin } from '@/services/authService';
+import { getGmProfile, getPlayerProfile, gmLogin, logout as authLogout, playerLogout, playerJoin } from '@/services/authService';
 import { getStoredToken, clearStoredToken } from '@/lib/api/apiClient';
-import { connectSocket } from '@/lib/socket/socketClient';
+import { connectSocket, disconnectSocket } from '@/lib/socket/socketClient';
 import type { GmAuthUser, PlayerAuthUser } from '@/types/app';
 import { logger } from '@/lib/utils/helpers';
 
@@ -35,6 +35,7 @@ interface AuthContextValue extends AuthState {
   loginGm: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   joinPlayerSession: (code: string, name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  finishPlayerSession: () => Promise<void>;
   refreshSession: () => Promise<void>;
   setPlayerContext: (ctx: PlayerContext | null) => void;
 }
@@ -143,6 +144,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logger.info('Logged out successfully.');
   }, [setPlayerContext]);
 
+  const finishPlayerSession = useCallback(async () => {
+    try {
+      await playerLogout();
+    } catch {
+      // Ignore network error on logout
+    } finally {
+      clearStoredToken();
+      disconnectSocket();
+      setPlayerContext(null);
+      setUser(null);
+      setStatus('unauthenticated');
+      logger.info('Finished player session and cleared state.');
+    }
+  }, [setPlayerContext]);
+
   const value: AuthContextValue = {
     status,
     user,
@@ -153,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginGm,
     joinPlayerSession,
     logout,
+    finishPlayerSession,
     refreshSession,
     setPlayerContext,
   };

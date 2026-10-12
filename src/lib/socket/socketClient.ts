@@ -67,6 +67,7 @@ export function connectSocket(): Socket {
 
 export function disconnectSocket(): void {
   if (socketInstance) {
+    socketInstance.removeAllListeners();
     socketInstance.disconnect();
     socketInstance = null;
   }

@@ -34,7 +34,7 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
 
   const createMockGame = (overrides: Record<string, any> = {}) => {
     const round2Start = new Date('2026-10-12T10:00:00.000Z');
-    const masterEndsAt = new Date('2026-10-12T10:10:00.000Z');
+    const masterEndsAt = new Date(Date.now() + 600 * 1000);
 
     const playersList = [
       {
@@ -403,7 +403,7 @@ describe('DECEPTION — Report Body & Event Duration Calculations', () => {
     });
 
     it('Round 2 master timer remains unchanged across body report', async () => {
-      const originalMasterEnd = new Date('2026-10-12T10:10:00.000Z');
+      const originalMasterEnd = new Date(Date.now() + 600 * 1000);
       const gameDoc = createMockGame({ round2EndsAt: originalMasterEnd });
       vi.spyOn(Game, 'findById').mockResolvedValue(gameDoc);
 

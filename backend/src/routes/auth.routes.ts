@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express';
-import { gmLogin, gmLogout, getGmProfile, playerJoin, getPlayerProfile } from '../controllers/auth.controller';
+import { gmLogin, gmLogout, getGmProfile, playerJoin, playerLogout, getPlayerProfile } from '../controllers/auth.controller';
 import { requireGm, requirePlayer } from '../middleware/auth.middleware';
 import { validateBody, gmLoginSchema, joinGameSchema } from '../validators/schemas';
 
@@ -16,6 +16,8 @@ router.get('/gm/me', requireGm, getGmProfile);
 
 // Player auth
 router.post('/player/join', validateBody(joinGameSchema), playerJoin);
+router.post('/player/logout', playerLogout);
+router.post('/logout', playerLogout);
 router.get('/player/me', requirePlayer, getPlayerProfile);
 
 export default router;

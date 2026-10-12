@@ -82,7 +82,21 @@ export async function gmLogin(email: string, password: string): Promise<ApiResul
  */
 export async function logout(): Promise<void> {
   try {
-    await apiClient.post('/auth/gm/logout');
+    await apiClient.post('/auth/logout');
+  } catch {
+    // Ignore network error on logout
+  } finally {
+    clearStoredToken();
+    disconnectSocket();
+  }
+}
+
+/**
+ * Explicitly logs out a player and cleans up session tokens and socket.
+ */
+export async function playerLogout(): Promise<void> {
+  try {
+    await apiClient.post('/auth/player/logout');
   } catch {
     // Ignore network error on logout
   } finally {

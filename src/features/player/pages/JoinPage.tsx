@@ -180,16 +180,19 @@ export default function JoinPage() {
                     <button
                       key={p.id || p.playerName}
                       type="button"
+                      disabled={isClaimed}
                       onClick={() => {
-                        setSelectedName(p.playerName);
-                        setError(null);
+                        if (!isClaimed) {
+                          setSelectedName(p.playerName);
+                          setError(null);
+                        }
                       }}
-                      className={`w-full px-4 py-3.5 rounded-xl border text-left font-medium transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-mosaic-accent/15 border-mosaic-accent text-white shadow-sm shadow-mosaic-accent/10'
-                          : isClaimed
-                          ? 'bg-mosaic-dark/80 border-mosaic-border/70 text-zinc-300 hover:border-mosaic-accent/40'
-                          : 'bg-mosaic-dark border-mosaic-border text-mosaic-muted hover:border-mosaic-accent/40 hover:text-white'
+                      className={`w-full px-4 py-3.5 rounded-xl border text-left font-medium transition-all flex items-center justify-between ${
+                        isClaimed
+                          ? 'bg-mosaic-dark/50 border-mosaic-border/40 text-mosaic-muted/50 cursor-not-allowed opacity-60'
+                          : isSelected
+                          ? 'bg-mosaic-accent/15 border-mosaic-accent text-white shadow-sm shadow-mosaic-accent/10 cursor-pointer'
+                          : 'bg-mosaic-dark border-mosaic-border text-mosaic-muted hover:border-mosaic-accent/40 hover:text-white cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -197,8 +200,8 @@ export default function JoinPage() {
                         <span className={isSelected ? 'text-white font-semibold' : ''}>{p.playerName}</span>
                       </div>
                       {isClaimed ? (
-                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-                          <Lock className="w-3 h-3 text-mosaic-accent" /> Resume
+                        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                          <Lock className="w-3 h-3 text-zinc-400" /> Claimed
                         </span>
                       ) : isSelected ? (
                         <CheckCircle2 className="w-4 h-4 text-mosaic-accent" />
@@ -217,7 +220,7 @@ export default function JoinPage() {
               <button
                 id="player-join-btn"
                 type="submit"
-                disabled={isJoining || !selectedName}
+                disabled={isJoining || !selectedName || selectedPlayer?.isClaimed}
                 className="w-full py-3.5 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-mosaic-accent/20"
               >
                 {isJoining ? (
@@ -225,10 +228,8 @@ export default function JoinPage() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Connecting...</span>
                   </>
-                ) : selectedPlayer?.isClaimed ? (
-                  'Resume Game'
                 ) : (
-                  'Join Game'
+                  'Join Team'
                 )}
               </button>
             </form>
