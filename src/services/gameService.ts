@@ -61,6 +61,8 @@ export interface GmKillRecord {
   imposterPlayerId: string;
   imposterPlayerName: string;
   reportedAt: string;
+  elapsedSeconds?: number | null;
+  elapsedFormatted?: string | null;
 }
 
 export interface GmGameStateData {
@@ -72,6 +74,7 @@ export interface GmGameStateData {
   result: string | null;
   phaseStartedAt: string | null;
   phaseEndsAt: string | null;
+  round2StartedAt?: string | null;
   round2EndsAt?: string | null;
   isPaused?: boolean;
   pausedAt?: string | null;

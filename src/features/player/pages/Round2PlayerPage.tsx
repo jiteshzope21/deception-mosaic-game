@@ -662,20 +662,26 @@ export default function Round2PlayerPage() {
             </p>
 
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {allPlayersList.filter(p => !p.isSelf).map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedReportVictim(p.id)}
-                  className={`w-full p-2.5 rounded-xl border text-left text-xs font-semibold flex items-center justify-between transition-colors ${
-                    selectedReportVictim === p.id
-                      ? 'bg-mosaic-accent/20 border-mosaic-accent text-white'
-                      : 'bg-mosaic-dark/80 border-mosaic-border text-mosaic-muted hover:text-white'
-                  }`}
-                >
-                  <span>{p.playerName}</span>
-                  <span className="text-[10px] opacity-75">{p.status}</span>
-                </button>
-              ))}
+              {allPlayersList.filter(p => !p.isSelf && p.status === 'ELIMINATED').length === 0 ? (
+                <div className="p-4 text-center text-xs text-mosaic-muted border border-mosaic-border/40 rounded-xl bg-mosaic-dark/40">
+                  No eliminated player bodies found to report.
+                </div>
+              ) : (
+                allPlayersList.filter(p => !p.isSelf && p.status === 'ELIMINATED').map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedReportVictim(p.id)}
+                    className={`w-full p-2.5 rounded-xl border text-left text-xs font-semibold flex items-center justify-between transition-colors ${
+                      selectedReportVictim === p.id
+                        ? 'bg-mosaic-accent/20 border-mosaic-accent text-white'
+                        : 'bg-mosaic-dark/80 border-mosaic-border text-mosaic-muted hover:text-white'
+                    }`}
+                  >
+                    <span>{p.playerName}</span>
+                    <span className="text-[10px] text-red-400 font-mono">● Eliminated</span>
+                  </button>
+                ))
+              )}
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -687,8 +693,8 @@ export default function Round2PlayerPage() {
               </button>
               <button
                 onClick={() => handleReportBody(selectedReportVictim || undefined)}
-                disabled={reportLoading}
-                className="flex-1 py-2.5 bg-mosaic-accent text-black font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                disabled={reportLoading || !selectedReportVictim}
+                className="flex-1 py-2.5 bg-mosaic-accent text-black font-bold text-xs rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {reportLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Confirm Report

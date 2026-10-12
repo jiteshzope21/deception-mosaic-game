@@ -50,6 +50,31 @@ const QUESTION_CATEGORIES = [
   'Operating Systems',
 ];
 
+export function formatKillElapsed(
+  reportedAt?: string | Date | null,
+  round2StartedAt?: string | Date | null
+): string {
+  if (!reportedAt) return 'Not reported';
+  if (!round2StartedAt) return 'Time recorded';
+  const reportTime = new Date(reportedAt).getTime();
+  const startTime = new Date(round2StartedAt).getTime();
+  if (isNaN(reportTime) || isNaN(startTime)) return 'Not reported';
+
+  const elapsedMs = Math.max(0, reportTime - startTime);
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  if (hours > 0) {
+    const hh = String(hours).padStart(2, '0');
+    return `${hh}:${mm}:${ss} into Round 2`;
+  }
+  return `${mm}:${ss} into Round 2`;
+}
+
 export default function GmDashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -1950,8 +1975,11 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-mono text-mosaic-muted">
-                  {new Date(k.reportedAt).toLocaleTimeString()}
+                <span
+                  className="text-xs font-mono text-mosaic-muted"
+                  title={k.reportedAt ? new Date(k.reportedAt).toLocaleTimeString() : undefined}
+                >
+                  {(k as any).elapsedFormatted || formatKillElapsed(k.reportedAt, game.round2StartedAt)}
                 </span>
               </div>
             ))}
@@ -2744,14 +2772,20 @@ function HistoryPanel() {
                     <div className="pt-2 border-t border-mosaic-border/20">
                       <p className="text-mosaic-muted text-[10px] uppercase font-bold mb-1">Victims:</p>
                       <ul className="space-y-1 text-mosaic-muted">
-                        {detailGame.round2.kills.map((k: any, i: number) => (
-                          <li key={i} className="flex justify-between">
-                            <span>Kill #{k.killNumber}: {k.victimPlayerName}</span>
-                            <span className="font-mono text-[10px]">
-                              {k.reportedAt ? new Date(k.reportedAt).toLocaleTimeString() : 'Not reported'}
-                            </span>
-                          </li>
-                        ))}
+                        {detailGame.round2.kills.map((k: any, i: number) => {
+                          const elapsedText = k.elapsedFormatted || formatKillElapsed(k.reportedAt, detailGame.round2?.startedAt);
+                          return (
+                            <li key={i} className="flex justify-between items-center text-xs">
+                              <span>Kill #{k.killNumber}: {k.victimPlayerName}</span>
+                              <span
+                                className="font-mono text-[10px] text-mosaic-muted"
+                                title={k.reportedAt ? new Date(k.reportedAt).toLocaleTimeString() : undefined}
+                              >
+                                {elapsedText}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
@@ -2791,8 +2825,9 @@ function HistoryPanel() {
                             </span>
                           </div>
                           {p.assignedTaskName && (
-                            <p className="text-[10px] text-mosaic-muted mt-0.5">
-                              Zone {p.assignedTaskZone}: {p.assignedTaskName}
+                            <p className="text-[10px] text-mosaic-muted mt-0.5 flex items-center gap-1.5">
+                              <span>Zone {p.assignedTaskZone}: {p.assignedTaskName}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 bg-mosaic-dark/80 border border-mosaic-border/40 rounded text-mosaic-muted font-medium">Task assigned</span>
                             </p>
                           )}
                         </div>
@@ -2805,10 +2840,14 @@ function HistoryPanel() {
                 </div>
 
                 {/* Round 1 Summary */}
-                <div className="bg-mosaic-dark/30 p-3 rounded-xl border border-mosaic-border/20 flex justify-between items-center text-mosaic-muted">
+                <div className="bg-mosaic-dark/30 p-3 rounded-xl border border-mosaic-border/20 flex justify-between items-center text-mosaic-muted text-xs">
                   <span>Round 1 Puzzle Status</span>
                   <span className={detailGame.round1?.puzzleCompleted ? 'text-green-400 font-bold' : 'text-mosaic-muted'}>
-                    {detailGame.round1?.puzzleCompleted ? 'Completed' : 'Incomplete'}
+                    {detailGame.round1?.puzzleCompleted
+                      ? (detailGame.round1?.puzzleDurationFormatted
+                          ? `Completed (Duration: ${detailGame.round1.puzzleDurationFormatted})`
+                          : 'Completed')
+                      : 'Incomplete'}
                   </span>
                 </div>
               </div>

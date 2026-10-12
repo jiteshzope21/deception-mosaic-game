@@ -171,15 +171,19 @@ const killSchema = new Schema<IKill>({
 
 export interface IBodyReport {
   _id: Types.ObjectId;
-  killId: Types.ObjectId;
+  killId?: Types.ObjectId | null;
   reporterPlayerId: Types.ObjectId | null; // null if auto-reported
+  victimPlayerId?: Types.ObjectId | null;
+  clientActionId?: string | null;
   status: BodyReportStatus;
   reportedAt: Date;
 }
 
 const bodyReportSchema = new Schema<IBodyReport>({
-  killId: { type: Schema.Types.ObjectId, required: true },
+  killId: { type: Schema.Types.ObjectId, default: null },
   reporterPlayerId: { type: Schema.Types.ObjectId, default: null },
+  victimPlayerId: { type: Schema.Types.ObjectId, default: null },
+  clientActionId: { type: String, default: null },
   status: {
     type: String,
     enum: Object.values(BodyReportStatus),

@@ -474,6 +474,14 @@ export async function reportBody(req: Request, res: Response): Promise<void> {
       sendError(res, err.code || ErrorCode.VALIDATION_ERROR, err.message, err.statusCode);
       return;
     }
+    if (err.name === 'ValidationError') {
+      sendError(res, ErrorCode.VALIDATION_ERROR, err.message, 400);
+      return;
+    }
+    if (err.name === 'CastError') {
+      sendError(res, ErrorCode.VALIDATION_ERROR, 'Invalid identifier format.', 400);
+      return;
+    }
     logger.error('reportBody error:', err);
     sendInternalError(res);
   }

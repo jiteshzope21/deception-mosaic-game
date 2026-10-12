@@ -309,19 +309,25 @@ export async function getGameForGm(gameId: string) {
     puzzleCompleted: game.puzzleCompleted,
     puzzlePieces: game.puzzlePieces,
     killCount: game.killCount,
-    kills: game.kills.map((k) => {
-      const victim = game.players.id(k.victimPlayerId);
-      const imposter = game.players.id(k.imposterPlayerId);
-      return {
-        id: k._id,
-        killNumber: k.killNumber,
-        victimPlayerId: k.victimPlayerId,
-        victimPlayerName: victim?.playerName ?? 'Unknown',
-        imposterPlayerId: k.imposterPlayerId,
-        imposterPlayerName: imposter?.playerName ?? 'Unknown',
-        reportedAt: k.reportedAt,
-      };
-    }),
+    kills: game.kills
+      .slice()
+      .sort((a, b) => a.killNumber - b.killNumber)
+      .map((k) => {
+        const victim = game.players.id(k.victimPlayerId);
+        const imposter = game.players.id(k.imposterPlayerId);
+        const round2Start = game.round2StartedAt || game.events.find((e: any) => e.eventType === GameEventType.ROUND_2_STARTED)?.occurredAt;
+        return {
+          id: k._id,
+          killNumber: k.killNumber,
+          victimPlayerId: k.victimPlayerId,
+          victimPlayerName: victim?.playerName ?? 'Unknown',
+          imposterPlayerId: k.imposterPlayerId,
+          imposterPlayerName: imposter?.playerName ?? 'Unknown',
+          reportedAt: k.reportedAt,
+          elapsedSeconds: calculateElapsedSeconds(k.reportedAt, round2Start),
+          elapsedFormatted: formatElapsedIntoRound2(k.reportedAt, round2Start),
+        };
+      }),
     bodyReports: game.bodyReports.map((b) => {
       const reporter = b.reporterPlayerId ? game.players.id(b.reporterPlayerId) : null;
       return {
@@ -349,15 +355,15 @@ export async function getGameForGm(gameId: string) {
       assignedTaskDescription: p.assignedTaskDescription,
       joinedAt: p.joinedAt,
     })),
-    qrMappings: game.qrMappings.map((m) => ({
+    qrMappings: (game.qrMappings || []).map((m: any) => ({
       qrCodeId: m.qrCodeId,
       qrType: m.qrType,
       isCompleted: m.isCompleted,
       puzzlePieceIndex: m.puzzlePieceIndex,
-      questionsCount: m.questions.length,
+      questionsCount: m.questions ? m.questions.length : 0,
       completedAt: m.completedAt,
     })),
-    recentEvents: game.events.slice(-25),
+    recentEvents: (game.events || []).slice(-25),
   };
 }
 
@@ -2052,6 +2058,59 @@ export async function startRound2(gameId: string): Promise<IGame> {
   return startRound2Internal(game);
 }
 
+// ─── Duration & Elapsed Time Utilities ──────────────────────────────────────
+
+export function calculateElapsedSeconds(
+  eventTime?: Date | string | null,
+  startTime?: Date | string | null
+): number | null {
+  if (!eventTime || !startTime) return null;
+  const eventMs = new Date(eventTime).getTime();
+  const startMs = new Date(startTime).getTime();
+  if (isNaN(eventMs) || isNaN(startMs)) return null;
+  return Math.max(0, Math.floor((eventMs - startMs) / 1000));
+}
+
+export function formatElapsedIntoRound2(
+  eventTime?: Date | string | null,
+  startTime?: Date | string | null
+): string | null {
+  const totalSeconds = calculateElapsedSeconds(eventTime, startTime);
+  if (totalSeconds === null) return null;
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  if (hours > 0) {
+    const hh = String(hours).padStart(2, '0');
+    return `${hh}:${mm}:${ss} into Round 2`;
+  }
+  return `${mm}:${ss} into Round 2`;
+}
+
+export function formatDuration(
+  startTime?: Date | string | null,
+  endTime?: Date | string | null
+): string | null {
+  const totalSeconds = calculateElapsedSeconds(endTime, startTime);
+  if (totalSeconds === null) return null;
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  if (hours > 0) {
+    const hh = String(hours).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+  return `${mm}:${ss}`;
+}
+
 export async function recordKill(params: {
   gameId: string;
   imposterPlayerId: string;
@@ -2197,6 +2256,10 @@ export async function recordKill(params: {
   logger.info(`[GameService] Kill #${game.killCount} recorded: ${imposter.playerName} eliminated ${victim.playerName}`);
 
   // Socket emissions
+  const round2Start = game.round2StartedAt || now;
+  const elapsedSeconds = calculateElapsedSeconds(now, round2Start);
+  const elapsedFormatted = formatElapsedIntoRound2(now, round2Start);
+
   const killPayload = {
     killNumber: game.killCount,
     victimPlayerId: String(victim._id),
@@ -2204,6 +2267,8 @@ export async function recordKill(params: {
     imposterPlayerId: String(imposter._id),
     imposterPlayerName: imposter.playerName,
     reportedAt: now.toISOString(),
+    elapsedSeconds,
+    elapsedFormatted,
     killCount: game.killCount,
     phase: game.phase,
     phaseEndsAt: bodyReportEndsAt.toISOString(),
@@ -2216,6 +2281,8 @@ export async function recordKill(params: {
       imposterPlayerId: String(imposter._id),
       imposterPlayerName: imposter.playerName,
       reportedAt: now.toISOString(),
+      elapsedSeconds,
+      elapsedFormatted,
     },
   };
 
@@ -2256,7 +2323,7 @@ export async function reportBody(params: {
   victimPlayerId?: string;
   clientActionId?: string;
 }) {
-  const { gameId, reporterPlayerId, victimPlayerId } = params;
+  const { gameId, reporterPlayerId, victimPlayerId, clientActionId } = params;
 
   const game = await Game.findById(gameId);
   if (!game) {
@@ -2276,6 +2343,31 @@ export async function reportBody(params: {
     const error = new Error('Cannot report body: Game is completed and read-only.');
     (error as any).statusCode = 400;
     throw error;
+  }
+
+  // Idempotency check: if clientActionId was already submitted, return cached success
+  if (clientActionId) {
+    const dup = game.bodyReports.find((b: any) => b.clientActionId === clientActionId);
+    if (dup) {
+      return {
+        success: true,
+        phase: game.phase,
+        phaseEndsAt: game.phaseEndsAt,
+        round2EndsAt: game.round2EndsAt,
+        cached: true,
+      };
+    }
+  }
+
+  // If another player already reported and game transitioned to MOVE_TO_VOTING concurrently
+  if (game.phase === GamePhase.MOVE_TO_VOTING) {
+    return {
+      success: true,
+      phase: game.phase,
+      phaseEndsAt: game.phaseEndsAt,
+      round2EndsAt: game.round2EndsAt,
+      alreadyTransitioned: true,
+    };
   }
 
   await checkGameTimers(game);
@@ -2299,19 +2391,81 @@ export async function reportBody(params: {
     throw error;
   }
 
-  const victim = victimPlayerId ? game.players.id(victimPlayerId) : null;
+  let victim: any = null;
+  let victimKill: any = null;
+
+  if (victimPlayerId) {
+    victim = game.players.id(victimPlayerId);
+    if (!victim) {
+      const error = new Error('Victim player not found in this game.');
+      (error as any).statusCode = 400;
+      (error as any).code = 'INVALID_VICTIM';
+      throw error;
+    }
+    if (victim.status !== PlayerStatus.ELIMINATED) {
+      const error = new Error('Cannot report a living player.');
+      (error as any).statusCode = 400;
+      (error as any).code = 'VICTIM_NOT_ELIMINATED';
+      throw error;
+    }
+
+    victimKill = game.kills.find((k: any) => String(k.victimPlayerId) === String(victim._id));
+    const alreadyReported = game.bodyReports.some((b: any) => {
+      if (b.status === BodyReportStatus.ACCEPTED || b.status === BodyReportStatus.AUTO) {
+        if (victimKill && b.killId && String(b.killId) === String(victimKill._id)) {
+          return true;
+        }
+        if (b.victimPlayerId && String(b.victimPlayerId) === String(victim._id)) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (alreadyReported) {
+      const error = new Error('This body has already been reported.');
+      (error as any).statusCode = 400;
+      (error as any).code = 'BODY_ALREADY_REPORTED';
+      throw error;
+    }
+  } else {
+    // If no victimPlayerId specified, check if there is an active pending body report (from a recent kill)
+    const pendingReport = game.bodyReports.find((b) => b.status === BodyReportStatus.PENDING);
+    if (pendingReport) {
+      victimKill = pendingReport.killId ? game.kills.id(pendingReport.killId) : null;
+      victim = victimKill ? game.players.id(victimKill.victimPlayerId) : null;
+    } else {
+      const error = new Error('Please select an eliminated player body to report.');
+      (error as any).statusCode = 400;
+      (error as any).code = 'VICTIM_REQUIRED';
+      throw error;
+    }
+  }
 
   // Find or create pending body report
-  const pendingReport = game.bodyReports.find((b) => b.status === BodyReportStatus.PENDING);
+  const pendingReport = game.bodyReports.find(
+    (b) => b.status === BodyReportStatus.PENDING && (
+      !victimKill || !b.killId || String(b.killId) === String(victimKill._id)
+    )
+  );
   const now = new Date();
   if (pendingReport) {
     pendingReport.status = BodyReportStatus.ACCEPTED;
     pendingReport.reporterPlayerId = reporter._id;
+    pendingReport.reportedAt = now;
+    if (victim) {
+      pendingReport.victimPlayerId = victim._id;
+    }
+    if (clientActionId) {
+      pendingReport.clientActionId = clientActionId;
+    }
   } else {
     game.bodyReports.push({
       _id: new Types.ObjectId(),
-      killId: null,
+      killId: victimKill ? victimKill._id : null,
       reporterPlayerId: reporter._id,
+      victimPlayerId: victim ? victim._id : null,
+      clientActionId: clientActionId ?? null,
       status: BodyReportStatus.ACCEPTED,
       reportedAt: now,
     } as any);
@@ -2323,6 +2477,7 @@ export async function reportBody(params: {
   game.phase = GamePhase.MOVE_TO_VOTING;
   game.phaseStartedAt = now;
   game.phaseEndsAt = moveEndsAt;
+  // Master timer round2EndsAt remains untouched and continuous!
 
   game.events.push({
     eventType: GameEventType.BODY_REPORTED,
@@ -2340,24 +2495,35 @@ export async function reportBody(params: {
 
   logger.info(`[GameService] Body reported by ${reporter.playerName}. Moving to voting area.`);
 
-  emitToGame(String(game._id), SocketEvent.BODY_REPORTED, {
+  const reportPayload = {
     reporterPlayerId: reporter._id,
     reporterPlayerName: reporter.playerName,
+    victimPlayerId: victim?._id ?? null,
     victimPlayerName: victim?.playerName ?? null,
-  });
+    reportedAt: now.toISOString(),
+  };
 
-  emitToGame(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, {
+  const movePayload = {
     phaseEndsAt: moveEndsAt,
     round2EndsAt: game.round2EndsAt,
     reporterPlayerName: reporter.playerName,
-  });
+  };
 
-  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, {
+  const phasePayload = {
     from: GamePhase.BODY_REPORT,
     to: GamePhase.MOVE_TO_VOTING,
     phaseEndsAt: moveEndsAt,
     round2EndsAt: game.round2EndsAt,
-  });
+  };
+
+  emitToGame(String(game._id), SocketEvent.BODY_REPORTED, reportPayload);
+  emitToGm(String(game._id), SocketEvent.BODY_REPORTED, reportPayload);
+
+  emitToGame(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, movePayload);
+  emitToGm(String(game._id), SocketEvent.MOVE_TO_VOTING_STARTED, movePayload);
+
+  emitToGame(String(game._id), SocketEvent.PHASE_CHANGED, phasePayload);
+  emitToGm(String(game._id), SocketEvent.PHASE_CHANGED, phasePayload);
 
   return {
     success: true,
@@ -2727,6 +2893,17 @@ export async function getGameHistory(gameId: string) {
 
   const imposter = game.players.find((p) => p.role === PlayerRole.IMPOSTER);
 
+  const puzzleCompletedEvent = game.events.find(
+    (e: any) => e.eventType === GameEventType.ROUND_1_COMPLETED && e.eventData?.reason === 'PUZZLE_COMPLETED'
+  );
+  const round1StartedAt = game.round1StartedAt || game.startedAt;
+  const puzzleDurationSeconds = (game.puzzleCompleted && puzzleCompletedEvent)
+    ? calculateElapsedSeconds(puzzleCompletedEvent.occurredAt, round1StartedAt)
+    : null;
+  const puzzleDurationFormatted = (game.puzzleCompleted && puzzleCompletedEvent)
+    ? formatDuration(round1StartedAt, puzzleCompletedEvent.occurredAt)
+    : null;
+
   return {
     gameId: game._id,
     gameCode: game.gameCode,
@@ -2740,6 +2917,9 @@ export async function getGameHistory(gameId: string) {
       startedAt: game.round1StartedAt,
       endsAt: game.round1EndsAt,
       puzzleCompleted: game.puzzleCompleted,
+      puzzleCompletedAt: puzzleCompletedEvent?.occurredAt ?? null,
+      puzzleDurationSeconds,
+      puzzleDurationFormatted,
       puzzlePieces: game.puzzlePieces,
       qrMappings: game.qrMappings,
     },
@@ -2747,15 +2927,21 @@ export async function getGameHistory(gameId: string) {
       startedAt: game.round2StartedAt,
       endsAt: game.round2EndsAt,
       killCount: game.killCount,
-      kills: game.kills.map((k) => {
-        const victim = game.players.id(k.victimPlayerId);
-        return {
-          killNumber: k.killNumber,
-          victimPlayerId: k.victimPlayerId,
-          victimPlayerName: victim?.playerName ?? 'Unknown',
-          reportedAt: k.reportedAt,
-        };
-      }),
+      kills: game.kills
+        .slice()
+        .sort((a, b) => a.killNumber - b.killNumber)
+        .map((k) => {
+          const victim = game.players.id(k.victimPlayerId);
+          const round2Start = game.round2StartedAt || game.events.find((e: any) => e.eventType === GameEventType.ROUND_2_STARTED)?.occurredAt;
+          return {
+            killNumber: k.killNumber,
+            victimPlayerId: k.victimPlayerId,
+            victimPlayerName: victim?.playerName ?? 'Unknown',
+            reportedAt: k.reportedAt,
+            elapsedSeconds: calculateElapsedSeconds(k.reportedAt, round2Start),
+            elapsedFormatted: formatElapsedIntoRound2(k.reportedAt, round2Start),
+          };
+        }),
       votingCycles: game.votingCycle,
       votesCount: game.votes.length,
       votes: game.votes.map((v) => {
