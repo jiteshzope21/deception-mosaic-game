@@ -13,7 +13,7 @@ import { signGmToken, signPlayerToken } from '../utils/jwt.utils';
 import { sendSuccess, sendError, sendUnauthorized, sendInternalError } from '../utils/response.utils';
 import { ErrorCode } from '../types/auth.types';
 import { PlayerStatus, SocketEvent, GameEventType, GamePhase } from '../types/game.types';
-import { emitToGame } from '../sockets/socketServer';
+import { emitToGame, emitToGm } from '../sockets/socketServer';
 import { logger } from '../utils/logger';
 
 // ─── GM Login ─────────────────────────────────────────────────────────────────
@@ -143,8 +143,7 @@ export async function playerJoin(req: Request, res: Response): Promise<void> {
 
       await game.save();
 
-      // Emit Realtime updates to GM and waiting players
-      emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, {
+      const lobbyPayload = {
         gameId: game._id,
         gameCode: game.gameCode,
         players: game.players.map((p) => ({
@@ -152,9 +151,18 @@ export async function playerJoin(req: Request, res: Response): Promise<void> {
           playerName: p.playerName,
           status: p.status,
           isClaimed: p.status !== PlayerStatus.REGISTERED,
+          joinedAt: p.joinedAt,
         })),
-      });
+      };
 
+      // Emit Realtime updates to GM and waiting players
+      emitToGm(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
+      emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, lobbyPayload);
+
+      emitToGm(String(game._id), SocketEvent.PLAYER_JOINED, {
+        playerId: playerSlot._id,
+        playerName: playerSlot.playerName,
+      });
       emitToGame(String(game._id), SocketEvent.PLAYER_JOINED, {
         playerId: playerSlot._id,
         playerName: playerSlot.playerName,
@@ -176,23 +184,6 @@ export async function playerJoin(req: Request, res: Response): Promise<void> {
     });
 
     logger.info(`Player "${playerSlot.playerName}" joined game ${gameCode}`);
-
-    // Emit Realtime updates to GM and waiting players
-    emitToGame(String(game._id), SocketEvent.LOBBY_UPDATE, {
-      gameId: game._id,
-      gameCode: game.gameCode,
-      players: game.players.map((p) => ({
-        id: p._id,
-        playerName: p.playerName,
-        status: p.status,
-        isClaimed: p.status !== PlayerStatus.REGISTERED,
-      })),
-    });
-
-    emitToGame(String(game._id), SocketEvent.PLAYER_JOINED, {
-      playerId: playerSlot._id,
-      playerName: playerSlot.playerName,
-    });
 
     sendSuccess(res, {
       token,

@@ -24,6 +24,7 @@ import { config } from '../config/config';
 import { verifyToken, isGmPayload, isPlayerPayload } from '../utils/jwt.utils';
 import { SocketEvent } from '../types/game.types';
 import { logger } from '../utils/logger';
+import { Game } from '../models/Game.model';
 
 // ─── Socket Metadata ──────────────────────────────────────────────────────────
 
@@ -118,42 +119,74 @@ export function createSocketServer(httpServer: HttpServer): SocketServer {
 
   // ─── Connection Handler ────────────────────────────────────────────────────
 
-  io.on('connection', (rawSocket: Socket) => {
+  io.on('connection', async (rawSocket: Socket) => {
     const socket = rawSocket as AuthenticatedSocket;
     const { role, gmId, playerId, gameId, playerName } = socket.data;
 
     logger.debug(`Socket connected: ${role} | ${role === 'GM' ? gmId : playerName}`);
 
+    // Check if gameId was provided in handshake auth or query (e.g. GM reconnecting)
+    const handshakeGameId = (socket.handshake.auth?.gameId || socket.handshake.query?.gameId) as string | undefined;
+    const targetGameId = gameId || (typeof handshakeGameId === 'string' ? handshakeGameId.replace(/^(game|gm):/, '') : undefined);
+
     // ── Join appropriate rooms ───────────────────────────────────────────────
 
-    if (role === 'GM' && gameId) {
-      // GM joins the GM-specific room for a game (if gameId is known at connect time)
-      // Phase 2: GM will provide gameId after creating lobby
-      void socket.join(`gm:${gameId}`);
-      void socket.join(`game:${gameId}`);
+    if (role === 'GM' && targetGameId) {
+      try {
+        const game = await Game.findById(targetGameId);
+        if (game) {
+          void socket.join(`gm:${targetGameId}`);
+          void socket.join(`game:${targetGameId}`);
+          socket.data.gameId = targetGameId;
+          logger.debug(`GM joined game rooms on connect: gm:${targetGameId} and game:${targetGameId}`);
+        }
+      } catch (err) {
+        logger.error(`Error auto-joining GM to game ${targetGameId}:`, err);
+      }
     } else if (role === 'PLAYER' && gameId) {
       void socket.join(`game:${gameId}`);
       void socket.join(`player:${playerId}`);
       logger.info(`Player "${playerName}" connected to game ${gameId}`);
 
       // Notify the game room that a player connected
-      io.to(`game:${gameId}`).emit(SocketEvent.PLAYER_JOINED, {
+      io.to(`game:${gameId}`).to(`gm:${gameId}`).emit(SocketEvent.PLAYER_JOINED, {
         playerId,
         playerName,
       });
     }
 
     // ── Client Room Join Request ─────────────────────────────────────────────
-    // Allows GM to join a specific game room after creating a lobby
+    // Allows GM to join a specific game room after creating/loading a lobby
+    // with strict server-side validation and authorization
 
-    socket.on(SocketEvent.JOIN_ROOM, (data: { gameId: string }) => {
-      if (!data.gameId) return;
+    socket.on(SocketEvent.JOIN_ROOM, async (data: { gameId?: string; room?: string }) => {
+      const rawId = data?.gameId || data?.room;
+      if (!rawId || typeof rawId !== 'string') return;
+      const cleanGameId = rawId.replace(/^(game|gm):/, '');
 
-      if (role === 'GM') {
-        void socket.join(`gm:${data.gameId}`);
-        void socket.join(`game:${data.gameId}`);
-        socket.data.gameId = data.gameId;
-        logger.debug(`GM joined game room: ${data.gameId}`);
+      try {
+        if (role === 'GM') {
+          const game = await Game.findById(cleanGameId);
+          if (!game) {
+            logger.warn(`GM attempted to join non-existent game: ${cleanGameId}`);
+            return;
+          }
+          void socket.join(`gm:${cleanGameId}`);
+          void socket.join(`game:${cleanGameId}`);
+          socket.data.gameId = cleanGameId;
+          logger.debug(`GM joined authorized rooms gm:${cleanGameId} and game:${cleanGameId}`);
+        } else if (role === 'PLAYER') {
+          // Player can ONLY join their own authoritative game room, NEVER gm: room
+          if (socket.data.gameId !== cleanGameId) {
+            logger.warn(`Player ${playerId} attempted to join unauthorized game: ${cleanGameId}`);
+            return;
+          }
+          void socket.join(`game:${cleanGameId}`);
+          void socket.join(`player:${playerId}`);
+          logger.debug(`Player joined authorized room: game:${cleanGameId}`);
+        }
+      } catch (err) {
+        logger.error(`Error in JOIN_ROOM for game ${cleanGameId}:`, err);
       }
     });
 
@@ -162,9 +195,9 @@ export function createSocketServer(httpServer: HttpServer): SocketServer {
     socket.on('disconnect', (reason) => {
       logger.debug(`Socket disconnected: ${role} | reason: ${reason}`);
 
-      if (role === 'PLAYER' && gameId) {
+      if (role === 'PLAYER' && socket.data.gameId) {
         // Notify others in the game room
-        io.to(`game:${gameId}`).emit(SocketEvent.PLAYER_LEFT, {
+        io.to(`game:${socket.data.gameId}`).to(`gm:${socket.data.gameId}`).emit(SocketEvent.PLAYER_LEFT, {
           playerId,
           playerName,
         });
@@ -178,18 +211,20 @@ export function createSocketServer(httpServer: HttpServer): SocketServer {
 // ─── Game State Broadcast Helpers ─────────────────────────────────────────────
 
 /**
- * Emit a game state update to ALL participants in a game.
- * Used by game service when phase changes, timer starts, etc.
+ * Emit a game state update to ALL participants in a game (including GM).
+ * Emits to both game:<gameId> and gm:<gameId>. Socket.IO automatically
+ * ensures sockets present in both rooms receive the event only once.
  */
 export function emitToGame(gameId: string, event: string, data: unknown, io?: SocketServer): void {
   const server = io || ioInstance;
   if (server) {
-    server.to(`game:${gameId}`).emit(event, data);
+    server.to(`game:${gameId}`).to(`gm:${gameId}`).emit(event, data);
   }
 }
 
 /**
  * Emit a confidential event to GM only.
+ * Players never receive events emitted here.
  */
 export function emitToGm(gameId: string, event: string, data: unknown, io?: SocketServer): void {
   const server = io || ioInstance;

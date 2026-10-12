@@ -53,6 +53,16 @@ export interface GmPlayerState {
   joinedAt: string | null;
 }
 
+export interface GmKillRecord {
+  id: string;
+  killNumber: 1 | 2;
+  victimPlayerId: string;
+  victimPlayerName: string;
+  imposterPlayerId: string;
+  imposterPlayerName: string;
+  reportedAt: string;
+}
+
 export interface GmGameStateData {
   id: string;
   gameCode: string;
@@ -73,6 +83,9 @@ export interface GmGameStateData {
   players: GmPlayerState[];
   qrMappings: GmQrMappingState[];
   killCount?: number;
+  kills?: GmKillRecord[];
+  submittedVotesCount?: number;
+  eligibleVotersCount?: number;
   votingCycle?: number;
   recentEvents: Array<{
     _id: string;

@@ -2081,6 +2081,19 @@ export async function recordKill(params: {
     throw error;
   }
 
+  // 1. Idempotency / duplicate check (checked before phase check so retries succeed)
+  if (clientActionId) {
+    const dup = game.kills.find((k: any) => k.clientActionId === clientActionId);
+    if (dup) {
+      return {
+        success: true,
+        killNumber: dup.killNumber,
+        victimPlayerId: dup.victimPlayerId,
+        cached: true,
+      };
+    }
+  }
+
   // Check timers
   await checkGameTimers(game);
   if (game.phase !== GamePhase.ROUND_2_ACTIVE) {
@@ -2090,7 +2103,7 @@ export async function recordKill(params: {
     throw error;
   }
 
-  // 1. Imposter validation
+  // 2. Imposter validation
   const imposter = game.players.id(imposterPlayerId);
   if (!imposter) {
     const error = new Error('Player not in this game.');
@@ -2110,7 +2123,7 @@ export async function recordKill(params: {
     throw error;
   }
 
-  // 2. Kill limit check: Max 2 kills! Never 3!
+  // 3. Kill limit check: Max 2 kills! Never 3!
   if (game.killCount >= 2) {
     const error = new Error('Cannot record kill: Maximum kill limit (2) already reached.');
     (error as any).statusCode = 400;
@@ -2118,7 +2131,7 @@ export async function recordKill(params: {
     throw error;
   }
 
-  // 3. Victim validation
+  // 4. Victim validation
   if (victimPlayerId === imposterPlayerId) {
     const error = new Error('Cannot kill yourself.');
     (error as any).statusCode = 400;
@@ -2135,19 +2148,6 @@ export async function recordKill(params: {
     (error as any).statusCode = 400;
     (error as any).code = 'VICTIM_ALREADY_ELIMINATED';
     throw error;
-  }
-
-  // 4. Idempotency / duplicate check
-  if (clientActionId) {
-    const dup = game.kills.find((k: any) => k.clientActionId === clientActionId);
-    if (dup) {
-      return {
-        success: true,
-        killNumber: dup.killNumber,
-        victimPlayerId: dup.victimPlayerId,
-        cached: true,
-      };
-    }
   }
 
   const now = new Date();
@@ -2197,13 +2197,30 @@ export async function recordKill(params: {
   logger.info(`[GameService] Kill #${game.killCount} recorded: ${imposter.playerName} eliminated ${victim.playerName}`);
 
   // Socket emissions
-  emitToGm(String(game._id), SocketEvent.KILL_OCCURRED, {
+  const killPayload = {
     killNumber: game.killCount,
-    victimPlayerId: victim._id,
+    victimPlayerId: String(victim._id),
     victimPlayerName: victim.playerName,
-    imposterPlayerId: imposter._id,
+    imposterPlayerId: String(imposter._id),
     imposterPlayerName: imposter.playerName,
-  });
+    reportedAt: now.toISOString(),
+    killCount: game.killCount,
+    phase: game.phase,
+    phaseEndsAt: bodyReportEndsAt.toISOString(),
+    round2EndsAt: game.round2EndsAt ? game.round2EndsAt.toISOString() : null,
+    kill: {
+      id: String(killDoc._id),
+      killNumber: game.killCount,
+      victimPlayerId: String(victim._id),
+      victimPlayerName: victim.playerName,
+      imposterPlayerId: String(imposter._id),
+      imposterPlayerName: imposter.playerName,
+      reportedAt: now.toISOString(),
+    },
+  };
+
+  emitToGm(String(game._id), SocketEvent.KILL_OCCURRED, killPayload);
+  emitToGm(String(game._id), SocketEvent.KILL_RECORDED, killPayload);
 
   emitToGame(String(game._id), SocketEvent.PLAYER_STATUS_CHANGED, {
     playerId: victim._id,

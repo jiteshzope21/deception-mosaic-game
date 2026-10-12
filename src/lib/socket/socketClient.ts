@@ -32,6 +32,13 @@ export function getSocket(): Socket {
 
     socketInstance.on(SocketEvent.CONNECT, () => {
       console.log('[MOSAIC Socket] Connected:', socketInstance?.id);
+      const authObj = socketInstance?.auth as Record<string, unknown> | undefined;
+      if (authObj?.gameId) {
+        socketInstance?.emit(SocketEvent.JOIN_ROOM, {
+          gameId: authObj.gameId,
+          room: authObj.gameId,
+        });
+      }
     });
 
     socketInstance.on(SocketEvent.DISCONNECT, (reason) => {
@@ -67,11 +74,16 @@ export function disconnectSocket(): void {
 
 export function joinRoom(room: string): void {
   const socket = getSocket();
+  const cleanGameId = room.replace(/^(game|gm):/, '');
+  if (socket.auth) {
+    (socket.auth as Record<string, unknown>).gameId = cleanGameId;
+  }
+  const payload = { gameId: cleanGameId, room: cleanGameId };
   if (socket.connected) {
-    socket.emit(SocketEvent.JOIN_ROOM, { room });
+    socket.emit(SocketEvent.JOIN_ROOM, payload);
   } else {
     socket.once(SocketEvent.CONNECT, () => {
-      socket.emit(SocketEvent.JOIN_ROOM, { room });
+      socket.emit(SocketEvent.JOIN_ROOM, payload);
     });
     connectSocket();
   }

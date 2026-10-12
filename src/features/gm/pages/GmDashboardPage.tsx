@@ -24,9 +24,9 @@ import {
   pauseGame, resumeGame, resetRound1, resetRound2, terminateRound1, terminateRound2,
   listQuestions, createQuestion, updateQuestion, deleteQuestion,
   gmStartTransition, gmStartRound2, listGameHistory, getGameHistory,
-  type GmGameStateData, type QuestionBankItem, type GameHistoryEntry
+  type GmGameStateData, type QuestionBankItem, type GameHistoryEntry, type GmKillRecord
 } from '@/services/gameService';
-import { subscribeToEvent } from '@/lib/socket/socketClient';
+import { joinRoom, getSocket, subscribeToEvent } from '@/lib/socket/socketClient';
 import { SOCKET_EVENT, GAME_PHASE, type AnswerOption } from '@/types/enums';
 import GameConfigurationPanel from '../components/GameConfigurationPanel';
 
@@ -90,18 +90,71 @@ export default function GmDashboardPage() {
     void loadActiveGame();
   }, [loadActiveGame]);
 
-  // Realtime: lobby updates
+  // Room membership and reconnect synchronization
+  useEffect(() => {
+    if (activeGame?.id) {
+      joinRoom(activeGame.id);
+    }
+  }, [activeGame?.id]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const handleConnect = () => {
+      if (activeGame?.id) {
+        joinRoom(activeGame.id);
+        void loadActiveGame();
+      }
+    };
+    socket.on(SOCKET_EVENT.CONNECT, handleConnect);
+    return () => {
+      socket.off(SOCKET_EVENT.CONNECT, handleConnect);
+    };
+  }, [activeGame?.id, loadActiveGame]);
+
+  // Realtime: live updates for lobby, rounds, kills, and phases
   useEffect(() => {
     const unsubLobby = subscribeToEvent<any>(SOCKET_EVENT.LOBBY_UPDATE, (data) => {
       if (data?.players) {
-        setActiveGame((g) => g ? {
-          ...g,
-          players: data.players.map((p: any) => ({
-            ...p,
-            lives: p.lives ?? 2,
-            joinedAt: p.joinedAt ?? null,
-          })),
-        } : g);
+        setActiveGame((g) => {
+          if (!g) return g;
+          const mergedPlayers = g.players.map((existing) => {
+            const incoming = data.players.find(
+              (p: any) =>
+                String(p.id) === String(existing.id) ||
+                p.playerName?.toLowerCase() === existing.playerName?.toLowerCase()
+            );
+            if (!incoming) return existing;
+            return {
+              ...existing,
+              status: incoming.status ?? existing.status,
+              joinedAt: incoming.joinedAt ?? existing.joinedAt,
+            };
+          });
+          return {
+            ...g,
+            players: mergedPlayers,
+          };
+        });
+      }
+    });
+
+    const unsubPlayerJoined = subscribeToEvent<any>(SOCKET_EVENT.PLAYER_JOINED, (data) => {
+      if (data?.playerId || data?.playerName) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          return {
+            ...g,
+            players: g.players.map((p) => {
+              if (
+                (data.playerId && String(p.id) === String(data.playerId)) ||
+                (data.playerName && p.playerName.toLowerCase() === data.playerName.toLowerCase())
+              ) {
+                return { ...p, status: 'JOINED' };
+              }
+              return p;
+            }),
+          };
+        });
       }
     });
 
@@ -119,7 +172,7 @@ export default function GmDashboardPage() {
 
     const unsubPhase = subscribeToEvent<any>(SOCKET_EVENT.PHASE_CHANGED, (data) => {
       if (data?.to) {
-        setActiveGame((g) => g ? { ...g, phase: data.to, phaseEndsAt: data.phaseEndsAt ?? g?.phaseEndsAt, round2EndsAt: data.round2EndsAt ?? g?.round2EndsAt } : g);
+        setActiveGame((g) => g ? { ...g, phase: data.to, phaseEndsAt: data.phaseEndsAt ?? g?.phaseEndsAt, round2EndsAt: data.round2EndsAt ?? g?.round2EndsAt, result: data.result ?? g?.result } : g);
         if (data.to === GAME_PHASE.ROUND_1_ACTIVE || data.to === GAME_PHASE.ROUND_1_COMPLETE) {
           setView('round1');
         } else if (data.to === GAME_PHASE.LOBBY) {
@@ -145,6 +198,255 @@ export default function GmDashboardPage() {
             players: g.players.map((p) =>
               p.id === data.playerId ? { ...p, lives: data.lives } : p
             ),
+          };
+        });
+      }
+    });
+
+    const unsubKillOccurred = subscribeToEvent<any>(SOCKET_EVENT.KILL_OCCURRED, (data) => {
+      if (data) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          const newKill: GmKillRecord = data.kill || {
+            id: `kill-${data.killNumber}-${Date.now()}`,
+            killNumber: data.killNumber,
+            victimPlayerId: data.victimPlayerId,
+            victimPlayerName: data.victimPlayerName,
+            imposterPlayerId: data.imposterPlayerId,
+            imposterPlayerName: data.imposterPlayerName,
+            reportedAt: data.reportedAt || new Date().toISOString(),
+          };
+
+          const existingKills = g.kills || [];
+          const kills = existingKills.some(
+            (k) => k.killNumber === data.killNumber || (k.id && k.id === newKill.id)
+          )
+            ? existingKills
+            : [...existingKills, newKill];
+
+          const updatedPlayers = g.players.map((p) => {
+            if (
+              String(p.id) === String(data.victimPlayerId) ||
+              (data.victimPlayerName && p.playerName.toLowerCase() === data.victimPlayerName.toLowerCase())
+            ) {
+              return { ...p, status: 'ELIMINATED' };
+            }
+            return p;
+          });
+
+          const newEvent = {
+            _id: `ev-${Date.now()}`,
+            eventType: 'KILL_REPORTED',
+            playerId: data.imposterPlayerId,
+            eventData: {
+              killNumber: data.killNumber,
+              victimPlayerId: data.victimPlayerId,
+              victimPlayerName: data.victimPlayerName,
+              imposterPlayerName: data.imposterPlayerName,
+            },
+            occurredAt: data.reportedAt || new Date().toISOString(),
+          };
+
+          return {
+            ...g,
+            killCount: data.killCount ?? Math.max(g.killCount ?? 0, data.killNumber ?? 1),
+            kills,
+            players: updatedPlayers,
+            phase: data.phase ?? GAME_PHASE.BODY_REPORT,
+            phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+            round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+            recentEvents: [...(g.recentEvents || []), newEvent],
+          };
+        });
+      }
+    });
+
+    const unsubKillRecorded = subscribeToEvent<any>(SOCKET_EVENT.KILL_RECORDED, (data) => {
+      if (data) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          const newKill: GmKillRecord = data.kill || {
+            id: `kill-${data.killNumber}-${Date.now()}`,
+            killNumber: data.killNumber,
+            victimPlayerId: data.victimPlayerId,
+            victimPlayerName: data.victimPlayerName,
+            imposterPlayerId: data.imposterPlayerId,
+            imposterPlayerName: data.imposterPlayerName,
+            reportedAt: data.reportedAt || new Date().toISOString(),
+          };
+          const existingKills = g.kills || [];
+          const kills = existingKills.some(
+            (k) => k.killNumber === data.killNumber || (k.id && k.id === newKill.id)
+          )
+            ? existingKills
+            : [...existingKills, newKill];
+          return {
+            ...g,
+            killCount: data.killCount ?? Math.max(g.killCount ?? 0, data.killNumber ?? 1),
+            kills,
+            players: g.players.map((p) => {
+              if (
+                String(p.id) === String(data.victimPlayerId) ||
+                (data.victimPlayerName && p.playerName.toLowerCase() === data.victimPlayerName.toLowerCase())
+              ) {
+                return { ...p, status: 'ELIMINATED' };
+              }
+              return p;
+            }),
+            phase: data.phase ?? GAME_PHASE.BODY_REPORT,
+            phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+            round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+          };
+        });
+      }
+    });
+
+    const unsubPlayerStatus = subscribeToEvent<any>(SOCKET_EVENT.PLAYER_STATUS_CHANGED, (data) => {
+      if (data?.playerId || data?.playerName) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          return {
+            ...g,
+            players: g.players.map((p) => {
+              if (
+                (data.playerId && String(p.id) === String(data.playerId)) ||
+                (data.playerName && p.playerName.toLowerCase() === data.playerName.toLowerCase())
+              ) {
+                return { ...p, status: data.status };
+              }
+              return p;
+            }),
+          };
+        });
+      }
+    });
+
+    const unsubBodyReportStarted = subscribeToEvent<any>(SOCKET_EVENT.BODY_REPORT_STARTED, (data) => {
+      if (data) {
+        setActiveGame((g) => g ? {
+          ...g,
+          phase: GAME_PHASE.BODY_REPORT,
+          phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+          round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+        } : g);
+      }
+    });
+
+    const unsubBodyReported = subscribeToEvent<any>(SOCKET_EVENT.BODY_REPORTED, (data) => {
+      if (data) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          const newEvent = {
+            _id: `ev-${Date.now()}`,
+            eventType: 'BODY_REPORTED',
+            playerId: data.reporterPlayerId,
+            eventData: {
+              reporterPlayerName: data.reporterPlayerName,
+              victimPlayerName: data.victimPlayerName,
+            },
+            occurredAt: new Date().toISOString(),
+          };
+          return {
+            ...g,
+            recentEvents: [...(g.recentEvents || []), newEvent],
+          };
+        });
+      }
+    });
+
+    const unsubMoveToVoting = subscribeToEvent<any>(SOCKET_EVENT.MOVE_TO_VOTING_STARTED, (data) => {
+      if (data) {
+        setActiveGame((g) => g ? {
+          ...g,
+          phase: GAME_PHASE.MOVE_TO_VOTING,
+          phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+          round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+        } : g);
+      }
+    });
+
+    const unsubVotingStarted = subscribeToEvent<any>(SOCKET_EVENT.VOTING_STARTED, (data) => {
+      if (data) {
+        setActiveGame((g) => g ? {
+          ...g,
+          phase: GAME_PHASE.VOTING,
+          votingCycle: data.votingCycle ?? g.votingCycle,
+          phaseEndsAt: data.phaseEndsAt ?? g.phaseEndsAt,
+          round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+        } : g);
+      }
+    });
+
+    const unsubVoteCast = subscribeToEvent<any>(SOCKET_EVENT.VOTE_CAST, (data) => {
+      if (data) {
+        setActiveGame((g) => g ? {
+          ...g,
+          submittedVotesCount: data.submittedVotesCount ?? data.submitted ?? g.submittedVotesCount,
+          eligibleVotersCount: data.eligibleVotersCount ?? data.eligible ?? g.eligibleVotersCount,
+        } : g);
+      }
+    });
+
+    const unsubVotingResult = subscribeToEvent<any>(SOCKET_EVENT.VOTING_RESULT, (data) => {
+      if (data) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          let updatedPlayers = g.players;
+          if (data.eliminatedPlayer?.id) {
+            updatedPlayers = g.players.map((p) =>
+              String(p.id) === String(data.eliminatedPlayer.id) ? { ...p, status: 'ELIMINATED' } : p
+            );
+          }
+          return {
+            ...g,
+            players: updatedPlayers,
+            phase: data.nextPhase ?? (data.gameComplete ? GAME_PHASE.GAME_COMPLETE : g.phase),
+            result: data.result ?? g.result,
+            round2EndsAt: data.round2EndsAt ?? g.round2EndsAt,
+          };
+        });
+      }
+    });
+
+    const unsubPlayerEliminated = subscribeToEvent<any>(SOCKET_EVENT.PLAYER_ELIMINATED, (data) => {
+      if (data?.playerId) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          return {
+            ...g,
+            players: g.players.map((p) =>
+              String(p.id) === String(data.playerId) ? { ...p, status: 'ELIMINATED' } : p
+            ),
+          };
+        });
+      }
+    });
+
+    const unsubGameComplete = subscribeToEvent<any>(SOCKET_EVENT.GAME_COMPLETE, (data) => {
+      if (data) {
+        setActiveGame((g) => g ? {
+          ...g,
+          phase: GAME_PHASE.GAME_COMPLETE,
+          result: data.result ?? g.result,
+        } : g);
+      }
+    });
+
+    const unsubGameStateUpdate = subscribeToEvent<any>(SOCKET_EVENT.GAME_STATE_UPDATE, (data) => {
+      if (data) {
+        setActiveGame((g) => {
+          if (!g) return g;
+          return {
+            ...g,
+            ...data,
+            players: data.players
+              ? g.players.map((p) => {
+                  const incoming = data.players.find(
+                    (ip: any) => String(ip.id) === String(p.id) || ip.playerName === p.playerName
+                  );
+                  return incoming ? { ...p, ...incoming } : p;
+                })
+              : g.players,
           };
         });
       }
@@ -178,10 +480,23 @@ export default function GmDashboardPage() {
 
     return () => {
       unsubLobby();
+      unsubPlayerJoined();
       unsubStarted();
       unsubPhase();
       unsubPuzzle();
       unsubLives();
+      unsubKillOccurred();
+      unsubKillRecorded();
+      unsubPlayerStatus();
+      unsubBodyReportStarted();
+      unsubBodyReported();
+      unsubMoveToVoting();
+      unsubVotingStarted();
+      unsubVoteCast();
+      unsubVotingResult();
+      unsubPlayerEliminated();
+      unsubGameComplete();
+      unsubGameStateUpdate();
       unsubPaused();
       unsubResumed();
       unsubReset();
@@ -1606,6 +1921,41 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
           }`}>
             {game.result?.replace(/_/g, ' ') ?? 'Game ended'}
           </p>
+        </div>
+      )}
+
+      {/* Kill History (Authorized GM View) */}
+      {game.kills && game.kills.length > 0 && (
+        <div className="bg-mosaic-surface border border-red-500/30 rounded-2xl p-6">
+          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+            <Skull className="w-4 h-4 text-red-400" /> Kill History ({game.kills.length}/2)
+          </h2>
+          <div className="space-y-3">
+            {game.kills.map((k) => (
+              <div
+                key={k.id || k.killNumber}
+                className="flex items-center justify-between p-3.5 bg-red-950/20 border border-red-900/30 rounded-xl"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-red-500/20 text-red-400 font-mono">
+                    Kill #{k.killNumber}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Victim: <span className="text-red-400 font-bold">{k.victimPlayerName}</span>
+                      <span className="text-xs text-mosaic-muted ml-2">(Eliminated)</span>
+                    </p>
+                    <p className="text-xs text-mosaic-muted mt-0.5">
+                      Imposter: <span className="text-zinc-300 font-medium">{k.imposterPlayerName}</span>
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono text-mosaic-muted">
+                  {new Date(k.reportedAt).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
