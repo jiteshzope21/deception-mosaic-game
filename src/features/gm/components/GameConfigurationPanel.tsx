@@ -209,12 +209,12 @@ export default function GameConfigurationPanel() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-mosaic-border/60">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">Game Configuration</h1>
-            <span className="px-3 py-0.5 rounded-full text-xs font-semibold bg-mosaic-accent/15 text-mosaic-accent border border-mosaic-accent/30">
+            <h1 className="text-4xl font-display uppercase tracking-widest text-bone-cream">Game Configuration</h1>
+            <span className="px-3 py-0.5 rounded-full text-xs font-arcade font-bold bg-neon-red/15 text-neon-red border border-neon-red/40 tracking-wider">
               GM MASTER CONTROLS
             </span>
           </div>
-          <p className="text-mosaic-muted text-sm mt-1">
+          <p className="text-muted-steel text-sm mt-1">
             Authoritative rules, master QR identities, question bank, decoy messages, and physical tasks.
           </p>
         </div>
@@ -222,18 +222,18 @@ export default function GameConfigurationPanel() {
         {/* Global Save Button & Timestamp */}
         <div className="flex items-center gap-4">
           {lastSaved && (
-            <p className="text-xs text-mosaic-muted font-mono">
-              Last saved: <span className="text-white">{lastSaved}</span>
+            <p className="text-xs text-muted-steel font-arcade">
+              LAST SAVED: <span className="text-bone-cream">{lastSaved}</span>
             </p>
           )}
           <button
             type="button"
             disabled={isSaving}
             onClick={handleSaveConfig}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-mosaic-accent text-black font-bold hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-mosaic-accent/20 cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neon-red text-white font-bold tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(255,30,66,0.35)] cursor-pointer disabled:opacity-50"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Configuration
+            SAVE CONFIGURATION
           </button>
         </div>
       </div>
@@ -246,14 +246,14 @@ export default function GameConfigurationPanel() {
         </div>
       )}
       {saveError && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 text-red-400 text-sm">
+        <div className="p-4 bg-neon-red/10 border border-neon-red/30 rounded-2xl flex items-center gap-3 text-neon-red text-sm">
           <AlertCircle className="w-5 h-5 shrink-0" />
           {saveError}
         </div>
       )}
 
       {/* Section Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-mosaic-surface/60 border border-mosaic-border/60 rounded-2xl">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-tactical-slate border border-mosaic-border rounded-2xl">
         {[
           { key: 'qr', label: 'Fixed Master QRs', icon: QrCode, badge: `${fixedQrs.length}/10` },
           { key: 'questions', label: 'Question Bank', icon: BookOpen, badge: questions.length },
@@ -267,18 +267,18 @@ export default function GameConfigurationPanel() {
             key={key}
             type="button"
             onClick={() => setActiveTab(key as any)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
               activeTab === key
-                ? 'bg-mosaic-accent text-black shadow-md'
-                : 'text-mosaic-muted hover:text-white hover:bg-mosaic-dark/80'
+                ? 'bg-neon-red text-white font-bold shadow-[0_0_12px_rgba(255,30,66,0.4)]'
+                : 'text-muted-steel hover:text-white hover:bg-mosaic-dark/80'
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
             {badge !== undefined && (
               <span
-                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
-                  activeTab === key ? 'bg-black/20 text-black' : 'bg-white/10 text-mosaic-muted'
+                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-arcade ${
+                  activeTab === key ? 'bg-black/30 text-white' : 'bg-white/10 text-muted-steel'
                 }`}
               >
                 {badge}

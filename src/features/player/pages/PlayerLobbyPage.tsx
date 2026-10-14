@@ -7,9 +7,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, LogOut, Wifi, WifiOff, CheckCircle, Clock } from 'lucide-react';
+import { Users, LogOut, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthContext';
-import { APP_CONFIG } from '@/app/config/constants';
 import { getPlayerGameState, type LobbyPlayerData } from '@/services/gameService';
 import { getSocket, subscribeToEvent } from '@/lib/socket/socketClient';
 import { SOCKET_EVENT, GAME_PHASE } from '@/types/enums';
@@ -153,46 +152,86 @@ export default function PlayerLobbyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple mb-4 shadow-lg shadow-mosaic-accent/20">
-            <span className="text-white font-bold text-xl">M</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white">{APP_CONFIG.name}</h1>
-          <p className="text-mosaic-muted text-sm">{teamName}</p>
+    <div className="min-h-screen arcade-corridor-bg flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-x-hidden">
+      {/* Background arcade grid */}
+      <div className="absolute inset-0 arcade-grid opacity-40 pointer-events-none" />
 
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <div className="px-3 py-1 bg-mosaic-accent/10 border border-mosaic-accent/30 rounded-full">
-              <span className="text-mosaic-accent text-sm font-mono font-semibold tracking-wider">{gameCode}</span>
+      {/* Ambient Lighting */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-red-600/10 rounded-full blur-[110px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[110px]" />
+      </div>
+
+      <div className="relative w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl z-10 space-y-5">
+        {/* Header HUD */}
+        <div className="text-center space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 border border-[#1d2536] backdrop-blur-md mb-1">
+            <span className="font-arcade text-[10px] sm:text-xs font-bold tracking-widest text-[#8b9bb4]">ADG</span>
+            <span className="text-[#ff1e42] glow-text-red font-black text-xs">✕</span>
+            <span className="font-arcade text-[10px] sm:text-xs font-bold tracking-widest text-[#fff1e6]">MOSAIC</span>
+          </div>
+
+          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-wider text-[#fff1e6] glow-text-red">
+            CREW STAGING DECK
+          </h1>
+          <p className="font-tech text-xs sm:text-sm tracking-wider text-[#8b9bb4] uppercase">
+            SQUADRON: <span className="text-[#fff1e6] font-bold">{teamName || 'CLASSIFIED UNIT'}</span>
+          </p>
+
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <div className="px-3 py-1 bg-[#06070a] border border-[#00e5ff]/40 rounded-lg">
+              <span className="text-[#00e5ff] text-xs sm:text-sm font-arcade font-bold tracking-wider">
+                {gameCode}
+              </span>
             </div>
-            <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${isConnected ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10' : 'text-red-400 border-red-400/30 bg-red-400/10'}`}>
-              {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {isConnected ? 'Live' : 'Reconnecting...'}
+
+            <div className={`flex items-center gap-1.5 text-xs font-tech font-bold uppercase tracking-wider px-3 py-1 rounded-lg border ${
+              isConnected
+                ? 'text-[#00e5ff] border-[#00e5ff]/40 bg-[#00e5ff]/10'
+                : 'text-red-400 border-red-500/40 bg-red-500/10'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[#00e5ff] animate-ping' : 'bg-red-500'}`} />
+              <span>{isConnected ? 'NODE CONNECTED' : 'RECONNECTING...'}</span>
             </div>
           </div>
         </div>
 
-        {/* Player name badge */}
-        <div className="bg-gradient-to-r from-mosaic-accent/10 to-mosaic-purple/10 border border-mosaic-accent/20 rounded-2xl p-4 mb-4 text-center">
-          <p className="text-mosaic-muted text-xs mb-0.5">You are playing as</p>
-          <p className="text-2xl font-bold text-white">{myName}</p>
+        {/* Player Codename Badge */}
+        <div className="arcade-card bg-gradient-to-r from-red-950/20 via-[#0d1017] to-cyan-950/20 p-4 sm:p-5 border-l-4 border-l-[#ff1e42] relative">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-tech text-xs uppercase tracking-widest text-[#8b9bb4] font-semibold">
+                AUTHENTICATED OPERATIVE
+              </p>
+              <p className="font-arcade text-xl sm:text-2xl font-bold text-[#fff1e6] tracking-wider mt-0.5">
+                {myName}
+              </p>
+            </div>
+            <div className="px-2.5 py-1 rounded bg-[#ff1e42]/10 border border-[#ff1e42]/30 text-[#ff1e42] font-arcade text-xs font-bold uppercase">
+              ACTIVE
+            </div>
+          </div>
         </div>
 
-        {/* Team roster */}
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5 shadow-xl mb-4">
-          <div className="flex items-center justify-between mb-4">
+        {/* Team Roster Grid */}
+        <div className="arcade-card p-5 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-[#1d2536] pb-3">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-mosaic-accent" />
-              <h2 className="text-white font-semibold text-sm">Team Roster</h2>
+              <Users className="w-4 h-4 text-[#00e5ff]" />
+              <h2 className="font-arcade text-xs sm:text-sm font-bold text-[#fff1e6] uppercase tracking-wider">
+                SQUADRON MANIFEST
+              </h2>
             </div>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${allJoined ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-mosaic-accent/10 text-mosaic-accent border border-mosaic-accent/30'}`}>
-              {joinedCount}/{teamSize} joined
+            <span className={`font-arcade text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+              allJoined
+                ? 'bg-cyan-500/10 text-[#00e5ff] border-[#00e5ff]/40'
+                : 'bg-red-500/10 text-red-400 border-red-500/40'
+            }`}>
+              {joinedCount}/{teamSize} SLOTS ENGAGED
             </span>
           </div>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {players.map((p) => {
               const isMe = p.playerName === myName;
               const isJoined = p.isClaimed;
@@ -200,27 +239,29 @@ export default function PlayerLobbyPage() {
               return (
                 <div
                   key={p.id || p.playerName}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                  className={`flex items-center justify-between px-3.5 py-3 rounded-xl border transition-all ${
                     isMe
-                      ? 'bg-mosaic-accent/10 border-mosaic-accent/40'
+                      ? 'bg-[#ff1e42]/15 border-[#ff1e42] shadow-sm shadow-[#ff1e42]/20'
                       : isJoined
-                      ? 'bg-emerald-500/5 border-emerald-500/20'
-                      : 'bg-mosaic-dark border-mosaic-border/50'
+                      ? 'bg-[#0d1017] border-[#1d2536]'
+                      : 'bg-[#06070a]/60 border-[#1d2536]/40 opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isMe ? 'bg-mosaic-accent text-black' : isJoined ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                      {p.playerName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className={`text-sm font-medium ${isMe ? 'text-white' : isJoined ? 'text-white' : 'text-mosaic-muted'}`}>
+                    <div className={`w-2.5 h-2.5 rounded-full ${isJoined ? 'bg-[#00e5ff] shadow-[0_0_8px_#00e5ff]' : 'bg-zinc-700'}`} />
+                    <span className={`font-tech text-sm sm:text-base font-bold ${isMe ? 'text-[#fff1e6]' : isJoined ? 'text-[#fff1e6]' : 'text-[#8b9bb4]'}`}>
                       {p.playerName}
-                      {isMe && <span className="ml-1.5 text-xs text-mosaic-accent font-normal">(You)</span>}
+                      {isMe && <span className="ml-1.5 font-arcade text-[10px] text-[#ff1e42] uppercase font-bold">(YOU)</span>}
                     </span>
                   </div>
+
                   {isJoined ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <div className="flex items-center gap-1 font-arcade text-[10px] text-[#00e5ff]">
+                      <span>READY</span>
+                      <CheckCircle className="w-3.5 h-3.5 text-[#00e5ff]" />
+                    </div>
                   ) : (
-                    <span className="text-xs text-mosaic-muted/50">Waiting...</span>
+                    <span className="font-arcade text-[10px] text-zinc-600 uppercase">SYNCING...</span>
                   )}
                 </div>
               );
@@ -230,38 +271,37 @@ export default function PlayerLobbyPage() {
 
         {/* Waiting indicator */}
         {phase === GAME_PHASE.LOBBY && (
-          <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5 text-center mb-4">
-            <div className="relative inline-flex mb-3">
-              <div className="w-8 h-8 border-2 border-mosaic-accent/50 border-t-mosaic-accent rounded-full animate-spin" />
+          <div className="arcade-card p-5 text-center border-[#1d2536] space-y-2">
+            <div className="inline-flex p-2 rounded-full bg-red-950/40 border border-red-500/30 mb-1">
+              <div className="w-6 h-6 border-2 border-[#ff1e42] border-t-transparent rounded-full animate-spin" />
             </div>
-            <p className="text-white font-semibold text-sm">Waiting for Game Master</p>
-            <p className="text-mosaic-muted text-xs mt-1">
-              {allJoined ? 'All players ready — game starting soon!' : `Waiting for ${teamSize - joinedCount} more player${teamSize - joinedCount !== 1 ? 's' : ''} to join`}
+            <p className="font-arcade text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
+              WAITING FOR GAME MASTER LAUNCH
             </p>
-            {allJoined && (
-              <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-emerald-400">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Team complete!
-              </div>
-            )}
+            <p className="font-tech text-xs text-[#8b9bb4]">
+              {allJoined
+                ? 'All operatives synchronized. Stand by for Round 1 blueprint decryption.'
+                : `Awaiting ${teamSize - joinedCount} remaining operative${teamSize - joinedCount !== 1 ? 's' : ''} to report.`}
+            </p>
           </div>
         )}
 
-        {/* Info footer */}
-        <div className="flex items-center justify-center gap-1.5 text-xs text-mosaic-muted mb-4">
-          <Clock className="w-3.5 h-3.5" />
-          <span>Game begins when GM starts • Puzzle Solving Round • 4 minutes</span>
-        </div>
+        {/* Mission Footer Rules & Leave Button */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs font-tech text-[#8b9bb4]">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#ff1e42]" />
+            <span>ROUND 1: 4-MINUTE BLUEPRINT DECRYPTION</span>
+          </div>
 
-        {/* Leave */}
-        <button
-          id="player-leave-btn"
-          onClick={handleLeave}
-          className="flex items-center gap-2 text-mosaic-muted hover:text-white transition-colors text-sm mx-auto cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          Leave Game
-        </button>
+          <button
+            id="player-leave-btn"
+            onClick={handleLeave}
+            className="flex items-center gap-1.5 text-[#8b9bb4] hover:text-red-400 transition-colors font-arcade text-xs uppercase cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>ABORT TERMINAL</span>
+          </button>
+        </div>
       </div>
     </div>
   );

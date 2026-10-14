@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { useForm } from '../hooks/useGmLoginForm';
 import { useAuth } from '../../../app/providers/AuthContext';
-import { APP_CONFIG } from '../../../app/config/constants';
 
 export default function GmLoginPage() {
   const navigate = useNavigate();
@@ -51,35 +50,47 @@ export default function GmLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
-      {/* Background accent */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-mosaic-accent/5 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen arcade-corridor-bg text-bone-cream relative overflow-hidden flex flex-col items-center justify-center p-4">
+      {/* Background grid texture */}
+      <div className="absolute inset-0 arcade-grid opacity-30 pointer-events-none" />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md z-10 space-y-6">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple shadow-lg shadow-mosaic-accent/30 mb-4">
-            <span className="text-white font-bold text-2xl">M</span>
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-tactical-slate/90 border border-steel-border/80 rounded-full text-[11px] font-arcade tracking-widest text-muted-steel uppercase mb-2">
+            <span>ADG</span>
+            <span className="text-neon-red">✕</span>
+            <span>MOSAIC</span>
+            <span className="w-1 h-1 rounded-full bg-neon-red animate-ping" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-1">{APP_CONFIG.name}</h1>
-          <p className="text-mosaic-muted text-sm">{APP_CONFIG.tagline}</p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-mosaic-accent">
-            <Shield className="w-4 h-4" />
-            <span className="text-sm font-medium">Game Master Access</span>
+
+          <h1 className="text-5xl sm:text-6xl font-display uppercase tracking-wider text-bone-cream drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+            GAME MASTER
+          </h1>
+          <p className="text-xs font-arcade tracking-[0.25em] text-neon-red uppercase">
+            COMMAND & CONTROL ACCESS
+          </p>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-corridor/90 border border-steel-border rounded-lg text-xs font-arcade text-electric-cyan">
+            <Shield className="w-3.5 h-3.5 text-electric-cyan" />
+            <span className="tracking-wider">SECURITY LEVEL 5 TERMINAL</span>
           </div>
         </div>
 
         {/* Login Card */}
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-8 shadow-xl">
-          <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
+        <div className="arcade-card p-6 sm:p-8 border-glow-red relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-28 h-28 bg-neon-red/10 rounded-full blur-2xl pointer-events-none" />
+
+          <h2 className="text-lg font-arcade uppercase font-bold text-bone-cream tracking-wider mb-6 flex items-center justify-between border-b border-steel-border pb-3">
+            <span>AUTHENTICATE</span>
+            <span className="text-[10px] text-muted-steel">SECURE UPLINK</span>
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-5" id="gm-login-form">
             {/* Email */}
             <div>
-              <label htmlFor="gm-email" className="block text-sm font-medium text-mosaic-muted mb-1.5">
-                Email Address
+              <label htmlFor="gm-email" className="block text-xs font-arcade uppercase tracking-wider text-muted-steel mb-1.5">
+                OPERATIVE IDENTIFIER (EMAIL)
               </label>
               <input
                 id="gm-email"
@@ -87,19 +98,19 @@ export default function GmLoginPage() {
                 autoComplete="email"
                 value={values.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="gm@example.com"
-                className="w-full px-4 py-3 bg-mosaic-dark border border-mosaic-border rounded-xl text-white placeholder-mosaic-muted/50 focus:outline-none focus:ring-2 focus:ring-mosaic-accent focus:border-transparent transition-all"
+                placeholder="gm@mosaic.event"
+                className="arcade-input text-bone-cream placeholder:text-muted-steel/40"
                 disabled={isLoading}
               />
               {errors.email && (
-                <p className="mt-1.5 text-xs text-red-400">{errors.email}</p>
+                <p className="mt-1.5 text-xs text-neon-red font-tech">{errors.email}</p>
               )}
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="gm-password" className="block text-sm font-medium text-mosaic-muted mb-1.5">
-                Password
+              <label htmlFor="gm-password" className="block text-xs font-arcade uppercase tracking-wider text-muted-steel mb-1.5">
+                AUTHORIZATION CIPHER
               </label>
               <div className="relative">
                 <input
@@ -108,14 +119,14 @@ export default function GmLoginPage() {
                   autoComplete="current-password"
                   value={values.password}
                   onChange={(e) => handleChange('password', e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-12 bg-mosaic-dark border border-mosaic-border rounded-xl text-white placeholder-mosaic-muted/50 focus:outline-none focus:ring-2 focus:ring-mosaic-accent focus:border-transparent transition-all"
+                  placeholder="••••••••••••"
+                  className="arcade-input pr-12 text-bone-cream placeholder:text-muted-steel/40 font-mono"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-mosaic-muted hover:text-white transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-steel hover:text-bone-cream transition-colors p-1"
                   tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -123,14 +134,14 @@ export default function GmLoginPage() {
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1.5 text-xs text-red-400">{errors.password}</p>
+                <p className="mt-1.5 text-xs text-neon-red font-tech">{errors.password}</p>
               )}
             </div>
 
             {/* Error message */}
             {errorMessage && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-red-400">{errorMessage}</p>
+              <div className="p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl">
+                <p className="text-xs text-neon-red font-tech">{errorMessage}</p>
               </div>
             )}
 
@@ -139,23 +150,23 @@ export default function GmLoginPage() {
               id="gm-login-submit"
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-mosaic-accent/20"
+              className="arcade-btn-primary w-full py-3.5 text-xs font-arcade uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  AUTHENTICATING...
                 </>
               ) : (
-                'Sign In'
+                'INITIALIZE COMMAND SESSION'
               )}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-mosaic-muted">
-            GM accounts are pre-configured by the event organizer.
+          <p className="mt-6 text-center text-xs text-muted-steel/80 font-tech">
+            GM accounts are provisioned exclusively for event supervisors.
             <br />
-            No self-registration is available.
+            Unauthorized breach attempts will be recorded in the audit trail.
           </p>
         </div>
       </div>

@@ -596,36 +596,43 @@ export default function GmDashboardPage() {
   const allJoined = !!activeGame && joinedCount >= (activeGame.teamSize ?? 0);
 
   return (
-    <div className="min-h-screen bg-mosaic-dark text-white">
+    <div className="min-h-screen arcade-corridor-bg text-bone-cream font-tech selection:bg-neon-red/30 selection:text-white">
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 shrink-0 border-r border-mosaic-border/60 flex flex-col bg-mosaic-surface/50">
-          <div className="px-6 py-5 border-b border-mosaic-border/40">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple flex items-center justify-center font-bold text-black text-lg">
-                M
-              </div>
-              <div>
-                <p className="font-bold text-white text-sm">MOSAIC</p>
-                <p className="text-mosaic-muted text-xs">Game Master</p>
-              </div>
+        <aside className="w-64 shrink-0 border-r border-steel-border/80 flex flex-col bg-tactical-slate/95 backdrop-blur-md">
+          <div className="px-5 py-4 border-b border-steel-border/60">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-corridor/90 border border-steel-border rounded-full text-[10px] font-arcade tracking-widest text-muted-steel uppercase mb-1.5">
+              <span>ADG</span>
+              <span className="text-neon-red">✕</span>
+              <span>MOSAIC</span>
             </div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-black text-2xl uppercase tracking-wider text-bone-cream">
+                DECEPTION
+              </h1>
+              <span className="text-[10px] font-arcade font-bold px-2 py-0.5 rounded bg-neon-red/15 text-neon-red border border-neon-red/40 uppercase">
+                GM
+              </span>
+            </div>
+            <p className="text-[10px] font-arcade tracking-widest text-electric-cyan uppercase">
+              COMMAND CONTROL DECK
+            </p>
           </div>
 
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
             {[
-              { key: 'overview', label: 'Overview', icon: Activity },
-              { key: 'config', label: 'Game Configuration', icon: Settings },
-              { key: 'create', label: 'Create Game', icon: Plus },
+              { key: 'overview', label: 'OVERVIEW', icon: Activity },
+              { key: 'config', label: 'GAME CONFIG', icon: Settings },
+              { key: 'create', label: 'CREATE GAME', icon: Plus },
               {
                 key: 'lobby',
-                label: 'Lobby',
+                label: 'LOBBY RADAR',
                 icon: Users,
                 disabled: !activeGame || activeGame.phase !== GAME_PHASE.LOBBY,
               },
               {
                 key: 'round1',
-                label: 'Round 1',
+                label: 'ROUND 1 CIPHER',
                 icon: Play,
                 disabled:
                   !activeGame ||
@@ -634,27 +641,27 @@ export default function GmDashboardPage() {
               },
               {
                 key: 'round2',
-                label: 'Round 2 / Deception',
+                label: 'ROUND 2 DECEPTION',
                 icon: Shield,
                 disabled:
                   !activeGame ||
                   (!PHASE_3_PHASES.includes(activeGame.phase) &&
                     activeGame.phase !== GAME_PHASE.ROUND_1_COMPLETE),
               },
-              { key: 'history', label: 'History', icon: History },
-              { key: 'questions', label: 'Question Bank', icon: BookOpen },
+              { key: 'history', label: 'AUDIT LOGS', icon: History },
+              { key: 'questions', label: 'QUESTION BANK', icon: BookOpen },
             ].map(({ key, label, icon: Icon, disabled }) => (
               <button
                 key={key}
                 type="button"
                 disabled={disabled}
                 onClick={() => !disabled && setView(key as DashboardView)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-arcade tracking-wider transition-all ${
                   view === key
-                    ? 'bg-mosaic-accent/15 text-mosaic-accent border border-mosaic-accent/20'
+                    ? 'bg-neon-red/15 text-neon-red border border-neon-red/40 shadow-[0_0_12px_rgba(255,30,66,0.25)] font-bold'
                     : disabled
-                    ? 'text-mosaic-muted/40 cursor-not-allowed'
-                    : 'text-mosaic-muted hover:text-white hover:bg-mosaic-dark/70 cursor-pointer'
+                    ? 'text-muted-steel/30 cursor-not-allowed'
+                    : 'text-muted-steel hover:text-bone-cream hover:bg-elevated-panel border border-transparent hover:border-steel-border cursor-pointer'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -663,17 +670,17 @@ export default function GmDashboardPage() {
             ))}
           </nav>
 
-          <div className="p-4 border-t border-mosaic-border/40">
+          <div className="p-4 border-t border-steel-border/60 bg-corridor/60">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-white text-xs font-medium truncate">
-                  {(user as any)?.displayName ?? 'Game Master'}
+                <p className="text-bone-cream text-xs font-arcade font-bold truncate">
+                  {(user as any)?.displayName ?? 'COMMANDER'}
                 </p>
-                <p className="text-mosaic-muted text-xs truncate">{(user as any)?.email ?? ''}</p>
+                <p className="text-muted-steel text-[11px] truncate font-tech">{(user as any)?.email ?? ''}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="text-mosaic-muted hover:text-white ml-2 shrink-0 cursor-pointer"
+                className="text-muted-steel hover:text-neon-red ml-2 shrink-0 cursor-pointer p-1.5 rounded-lg hover:bg-neon-red/10 transition-colors"
                 title="Log out"
               >
                 <LogOut className="w-4 h-4" />
@@ -758,39 +765,55 @@ function OverviewPanel({
   onManageGame: () => void;
 }) {
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-3xl font-bold text-white mb-1">MOSAIC Dashboard</h1>
-      <p className="text-mosaic-muted mb-8">Game Master Event Control Center</p>
+    <div className="max-w-4xl space-y-6">
+      <div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-tactical-slate/90 border border-steel-border/80 rounded-full text-[11px] font-arcade tracking-widest text-muted-steel uppercase mb-2">
+          <span>ADG</span>
+          <span className="text-neon-red">✕</span>
+          <span>MOSAIC</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-electric-cyan animate-ping" />
+        </div>
+        <h1 className="text-4xl sm:text-5xl font-display uppercase tracking-wider text-bone-cream">
+          TACTICAL COMMAND DASHBOARD
+        </h1>
+        <p className="text-xs font-arcade tracking-[0.2em] text-neon-red uppercase">
+          GAME MASTER EVENT CONTROL CENTER
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {!activeGame ? (
-          <div className="col-span-2 bg-mosaic-surface border border-mosaic-border rounded-2xl p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-mosaic-accent/10 flex items-center justify-center mx-auto mb-4">
-              <Plus className="w-8 h-8 text-mosaic-accent" />
+          <div className="col-span-2 arcade-card p-8 sm:p-12 text-center border-steel-border relative overflow-hidden">
+            <div className="w-16 h-16 rounded-2xl bg-corridor border border-steel-border flex items-center justify-center mx-auto mb-4 text-electric-cyan shadow-inner">
+              <Plus className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">No Active Game</h2>
-            <p className="text-mosaic-muted mb-6">Create a new game to generate a lobby for your team.</p>
+            <h2 className="text-2xl font-display uppercase tracking-wider text-bone-cream mb-2">
+              NO ACTIVE OPERATION
+            </h2>
+            <p className="text-muted-steel text-sm font-tech max-w-md mx-auto mb-6">
+              Initialize a new tactical session to generate a mission lobby for the operative squadron.
+            </p>
             <button
               onClick={onCreateGame}
-              className="px-6 py-3 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-black font-semibold rounded-xl hover:opacity-90 transition-all cursor-pointer"
+              className="arcade-btn-primary px-8 py-3.5 text-xs font-arcade uppercase tracking-widest cursor-pointer"
             >
-              Create New Game
+              INITIALIZE NEW MISSION
             </button>
           </div>
         ) : (
           <>
-            <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-              <p className="text-mosaic-muted text-sm mb-1">Active Game</p>
-              <p className="text-2xl font-bold font-mono text-mosaic-accent">{activeGame.gameCode}</p>
-              <p className="text-white font-medium mt-1">{activeGame.teamName}</p>
-              <div className="mt-3 flex items-center gap-2">
+            <div className="arcade-card p-6 border-glow-cyan relative overflow-hidden">
+              <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mb-1">ACTIVE OPERATION</p>
+              <p className="text-4xl font-arcade font-black text-electric-cyan glow-text-cyan">{activeGame.gameCode}</p>
+              <p className="text-bone-cream font-tech font-bold text-lg mt-1">{activeGame.teamName}</p>
+              <div className="mt-4 flex items-center gap-2">
                 <span
-                  className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
+                  className={`px-3 py-1 text-[11px] font-arcade font-bold rounded-full border uppercase tracking-wider ${
                     activeGame.phase === GAME_PHASE.ROUND_1_ACTIVE
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      ? 'bg-electric-cyan/15 text-electric-cyan border-electric-cyan/40'
                       : activeGame.phase === GAME_PHASE.LOBBY
-                      ? 'bg-mosaic-accent/10 text-mosaic-accent border-mosaic-accent/30'
-                      : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30'
+                      ? 'bg-neon-red/15 text-neon-red border-neon-red/40'
+                      : 'bg-tactical-slate text-muted-steel border-steel-border'
                   }`}
                 >
                   {activeGame.phase.replace(/_/g, ' ')}
@@ -798,17 +821,18 @@ function OverviewPanel({
               </div>
             </div>
 
-            <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-              <p className="text-mosaic-muted text-sm mb-1">Team</p>
-              <p className="text-2xl font-bold text-white">
-                {activeGame.players.filter((p) => p.status === 'JOINED').length}/{activeGame.teamSize}
+            <div className="arcade-card-elevated p-6 border-steel-border">
+              <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mb-1">SQUADRON MANIFEST</p>
+              <p className="text-4xl font-arcade font-black text-bone-cream">
+                {activeGame.players.filter((p) => p.status === 'JOINED').length}
+                <span className="text-muted-steel text-2xl font-normal font-arcade">/{activeGame.teamSize}</span>
               </p>
-              <p className="text-mosaic-muted text-sm mt-1">players joined</p>
+              <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mt-1">OPERATIVES JOINED</p>
               <button
                 onClick={onManageGame}
-                className="mt-4 flex items-center gap-2 text-mosaic-accent text-sm font-medium hover:underline cursor-pointer"
+                className="mt-5 flex items-center gap-2 text-electric-cyan text-xs font-arcade uppercase tracking-widest hover:text-white transition-colors cursor-pointer"
               >
-                Manage Game <ChevronRight className="w-4 h-4" />
+                ENTER MISSION DECK <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </>
@@ -832,68 +856,80 @@ function CreateGamePanel({
   onViewLobby,
 }: any) {
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-white mb-1">Create New Game</h1>
-      <p className="text-mosaic-muted mb-6">Enter team roster to generate unique lobby code.</p>
+    <div className="max-w-2xl space-y-6">
+      <div>
+        <h1 className="text-4xl font-display uppercase tracking-wider text-bone-cream mb-1">
+          INITIALIZE OPERATION
+        </h1>
+        <p className="text-xs font-arcade tracking-[0.2em] text-neon-red uppercase">
+          CONFIGURE TEAM ROSTER & DISPATCH MISSION CODE
+        </p>
+      </div>
 
       {newGameCode && (
-        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-between">
+        <div className="arcade-card p-5 border-glow-cyan flex items-center justify-between">
           <div>
-            <p className="text-emerald-400 font-semibold">Game Created! 🎉</p>
-            <p className="text-emerald-200/70 text-sm">Share this code with players:</p>
-            <p className="text-3xl font-mono font-bold text-white mt-1">{newGameCode}</p>
+            <p className="text-electric-cyan font-arcade font-bold uppercase tracking-wider text-xs">SESSION CREATED</p>
+            <p className="text-muted-steel text-xs font-tech">Broadcast this authorization code to operatives:</p>
+            <p className="text-4xl font-arcade font-black text-bone-cream glow-text-cyan mt-1">{newGameCode}</p>
           </div>
           <button
             onClick={onViewLobby}
-            className="px-4 py-2 bg-emerald-500 text-black font-semibold rounded-xl hover:bg-emerald-400 transition-colors cursor-pointer"
+            className="arcade-btn-cyan px-5 py-2.5 text-xs font-arcade uppercase tracking-wider cursor-pointer"
           >
-            View Lobby →
+            RADAR LOBBY →
           </button>
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6 space-y-6">
+      <form onSubmit={onSubmit} className="arcade-card p-6 sm:p-8 space-y-6 border-steel-border">
         <div>
-          <label className="block text-sm font-medium text-mosaic-muted mb-1.5">Team Name</label>
+          <label className="block text-xs font-arcade uppercase tracking-wider text-muted-steel mb-2">
+            SQUADRON CODENAME
+          </label>
           <input
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="e.g. Cyber Ravens"
+            placeholder="e.g. CYBER VIPERS"
             maxLength={50}
-            className="w-full bg-mosaic-dark border border-mosaic-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-mosaic-accent transition-colors"
+            className="arcade-input text-bone-cream placeholder:text-muted-steel/40"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-mosaic-muted mb-2">Team Size</label>
-          <div className="flex gap-3">
+          <label className="block text-xs font-arcade uppercase tracking-wider text-muted-steel mb-2">
+            OPERATIVES ALLOCATION
+          </label>
+          <div className="flex gap-4">
             {([5, 6] as const).map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => onTeamSizeChange(s)}
-                className={`flex-1 py-3 rounded-xl border font-semibold text-lg transition-all cursor-pointer ${
+                className={`flex-1 py-3 rounded-xl border font-arcade font-bold text-base uppercase tracking-wider transition-all cursor-pointer ${
                   teamSize === s
-                    ? 'bg-mosaic-accent/20 border-mosaic-accent text-white'
-                    : 'bg-mosaic-dark border-mosaic-border text-mosaic-muted hover:border-mosaic-accent/40'
+                    ? 'bg-neon-red/20 border-neon-red text-bone-cream shadow-[0_0_15px_rgba(255,30,66,0.3)]'
+                    : 'bg-corridor border-steel-border text-muted-steel hover:border-steel-border/80'
                 }`}
               >
-                {s} Players
+                {s} OPERATIVES
               </button>
             ))}
           </div>
-          <p className="text-xs text-mosaic-muted mt-2">
+          <p className="text-xs text-muted-steel/80 font-tech mt-2">
             5 players: 5 puzzle QRs + 5 decoys | 6 players: 6 puzzle QRs + 4 decoys
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-mosaic-muted mb-2">Player Roster Names</label>
-          <div className="space-y-2">
+          <label className="block text-xs font-arcade uppercase tracking-wider text-muted-steel mb-2">
+            OPERATIVE CODENAMES
+          </label>
+          <div className="space-y-2.5">
             {playerNames.map((name: string, idx: number) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-mosaic-muted text-sm w-6 text-right shrink-0">{idx + 1}.</span>
+                <span className="text-muted-steel font-arcade text-xs w-6 text-right shrink-0">{idx + 1}.</span>
                 <input
                   type="text"
                   value={name}
@@ -902,9 +938,9 @@ function CreateGamePanel({
                     updated[idx] = e.target.value;
                     setPlayerNames(updated);
                   }}
-                  placeholder={`Player ${idx + 1} name`}
+                  placeholder={`Operative ${idx + 1} codename`}
                   maxLength={30}
-                  className="flex-1 bg-mosaic-dark border border-mosaic-border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-mosaic-accent transition-colors"
+                  className="arcade-input text-bone-cream text-xs placeholder:text-muted-steel/40"
                 />
               </div>
             ))}
@@ -912,19 +948,19 @@ function CreateGamePanel({
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="flex items-start gap-2 p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl">
+            <AlertCircle className="w-4 h-4 text-neon-red shrink-0 mt-0.5" />
+            <p className="text-neon-red text-xs font-tech">{error}</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={isCreating}
-          className="w-full py-3.5 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-black font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          className="arcade-btn-primary w-full py-4 text-xs font-arcade uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
         >
           {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {isCreating ? 'Creating...' : 'Create Game & Generate Code'}
+          {isCreating ? 'DISPATCHING SESSION...' : 'CREATE MISSION & GENERATE RADAR CODE'}
         </button>
       </form>
     </div>
@@ -933,43 +969,47 @@ function CreateGamePanel({
 
 function LobbyPanel({ game, joinedCount, allJoined, onStartGame, isStarting, startError }: any) {
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-4xl space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{game.teamName} — Lobby</h1>
-          <p className="text-mosaic-muted text-sm mt-0.5">Waiting for players to claim their roster slots</p>
+          <h1 className="text-4xl font-display uppercase tracking-wider text-bone-cream">
+            {game.teamName} — RADAR LOBBY
+          </h1>
+          <p className="text-xs font-arcade tracking-[0.2em] text-muted-steel uppercase">
+            AWAITING OPERATIVES TO CLAIM ENCRYPTED SLOTS
+          </p>
         </div>
-        <div className="text-right">
-          <p className="text-mosaic-muted text-xs mb-0.5">Game Code</p>
-          <p className="text-3xl font-mono font-bold text-mosaic-accent">{game.gameCode}</p>
+        <div className="text-left sm:text-right">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-wider mb-0.5">MISSION ACCESS CODE</p>
+          <p className="text-4xl font-arcade font-black text-neon-red glow-text-red">{game.gameCode}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs mb-1">Joined</p>
-          <p className="text-3xl font-bold text-white">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mb-1">SLOTS CLAIMED</p>
+          <p className="text-4xl font-arcade font-black text-bone-cream">
             {joinedCount}
-            <span className="text-mosaic-muted text-lg">/{game.teamSize}</span>
+            <span className="text-muted-steel text-xl font-normal">/{game.teamSize}</span>
           </p>
         </div>
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs mb-1">Team Size</p>
-          <p className="text-3xl font-bold text-white">{game.teamSize}</p>
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mb-1">TEAM ALLOCATION</p>
+          <p className="text-4xl font-arcade font-black text-bone-cream">{game.teamSize}</p>
         </div>
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs mb-1">Status</p>
-          <p className={`text-lg font-bold ${allJoined ? 'text-emerald-400' : 'text-yellow-400'}`}>
-            {allJoined ? '✅ All Joined — Ready' : '⏳ Waiting for Players'}
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-xs font-arcade uppercase tracking-wider mb-1">RADAR STATUS</p>
+          <p className={`text-base font-arcade font-bold uppercase tracking-wider ${allJoined ? 'text-electric-cyan glow-text-cyan' : 'text-neon-red glow-text-red'}`}>
+            {allJoined ? 'RADAR LOCKED — READY' : 'WAITING FOR SQUAD'}
           </p>
         </div>
       </div>
 
-      <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5 mb-6">
-        <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-4 h-4 text-mosaic-accent" /> Player Roster
+      <div className="arcade-card-elevated p-6 border-steel-border">
+        <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-electric-cyan" /> SQUADRON ROSTER STATUS
         </h2>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {game.players.map((p: any) => {
             const joined = p.status === 'JOINED';
             return (
@@ -977,29 +1017,29 @@ function LobbyPanel({ game, joinedCount, allJoined, onStartGame, isStarting, sta
                 key={p.id || p.playerName}
                 className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
                   joined
-                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                    : 'bg-mosaic-dark border-mosaic-border/50'
+                    ? 'bg-corridor/90 border-electric-cyan/40 text-bone-cream'
+                    : 'bg-corridor/40 border-steel-border/50 text-muted-steel/60'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      joined ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-arcade font-bold ${
+                      joined ? 'bg-electric-cyan/20 text-electric-cyan border border-electric-cyan/40' : 'bg-corridor text-muted-steel/40 border border-steel-border'
                     }`}
                   >
                     {p.playerName.charAt(0).toUpperCase()}
                   </div>
-                  <span className={`font-medium ${joined ? 'text-white' : 'text-mosaic-muted'}`}>
+                  <span className={`font-tech text-sm font-semibold ${joined ? 'text-bone-cream' : 'text-muted-steel'}`}>
                     {p.playerName}
                   </span>
                 </div>
                 {joined ? (
-                  <span className="flex items-center gap-1 text-xs text-emerald-400">
-                    <CheckCircle className="w-3.5 h-3.5" /> Joined
+                  <span className="flex items-center gap-1 text-[11px] font-arcade font-bold uppercase text-electric-cyan">
+                    <CheckCircle className="w-3.5 h-3.5" /> READY
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs text-mosaic-muted">
-                    <Clock className="w-3.5 h-3.5" /> Waiting
+                  <span className="flex items-center gap-1 text-[11px] font-arcade uppercase text-muted-steel/60">
+                    <Clock className="w-3.5 h-3.5" /> WAITING
                   </span>
                 )}
               </div>
@@ -1009,27 +1049,27 @@ function LobbyPanel({ game, joinedCount, allJoined, onStartGame, isStarting, sta
       </div>
 
       {startError && (
-        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl mb-4">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-          <p className="text-red-400 text-sm">{startError}</p>
+        <div className="flex items-center gap-2 p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-neon-red shrink-0" />
+          <p className="text-neon-red text-xs font-tech">{startError}</p>
         </div>
       )}
 
       <button
         onClick={onStartGame}
         disabled={!allJoined || isStarting}
-        className="w-full py-4 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-black font-bold text-lg rounded-2xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 cursor-pointer shadow-lg shadow-mosaic-accent/20"
+        className="arcade-btn-primary w-full py-4 text-sm font-arcade uppercase tracking-widest flex items-center justify-center gap-3 cursor-pointer disabled:opacity-40"
       >
         {isStarting ? (
           <Loader2 className="w-5 h-5 animate-spin" />
         ) : (
-          <Play className="w-5 h-5 fill-black" />
+          <Play className="w-5 h-5 fill-current" />
         )}
-        {isStarting ? 'Starting Round 1...' : 'START GAME'}
+        {isStarting ? 'COMMENCING MISSION...' : 'START GAME — INITIATE ROUND 1'}
       </button>
       {!allJoined && (
-        <p className="text-center text-mosaic-muted text-xs mt-2">
-          Start Game unlocks once all {game.teamSize} registered players have claimed their names
+        <p className="text-center text-muted-steel text-xs font-tech mt-2">
+          Start Game unlocks once all {game.teamSize} registered operatives have confirmed connection.
         </p>
       )}
     </div>
@@ -1155,21 +1195,22 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-white">{game.teamName}</h1>
+            <h1 className="text-4xl font-display uppercase tracking-wider text-bone-cream">{game.teamName}</h1>
             <span
-              className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+              className={`px-3 py-1 text-[11px] font-arcade font-bold rounded-full border uppercase tracking-wider ${
                 isComplete
-                  ? 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                  ? 'bg-tactical-slate text-muted-steel border-steel-border'
                   : game.isPaused
-                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40'
-                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/40'
+                  : 'bg-electric-cyan/15 text-electric-cyan border-electric-cyan/40 glow-text-cyan'
               }`}
             >
-              {isComplete ? 'ROUND 1 COMPLETE' : game.isPaused ? 'ROUND 1 PAUSED' : 'PUZZLE SOLVING ACTIVE'}
+              {isComplete ? 'ROUND 1 COMPLETE' : game.isPaused ? 'ROUND 1 SUSPENDED' : 'CIPHER SOLVING ACTIVE'}
             </span>
           </div>
-          <p className="text-mosaic-muted text-sm mt-1">
-            Round 1: Puzzle Solving • Code: <span className="font-mono text-mosaic-accent font-semibold">{game.gameCode}</span>
+          <p className="text-muted-steel text-xs font-arcade tracking-widest mt-1 uppercase">
+            ROUND 1: BLUEPRINT DECRYPT • AUTHORIZATION CODE:{' '}
+            <span className="font-arcade text-neon-red font-bold">{game.gameCode}</span>
           </p>
         </div>
 
@@ -1179,89 +1220,89 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
             <button
               onClick={handleTogglePause}
               disabled={isActionLoading}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-arcade uppercase tracking-wider transition-all cursor-pointer border ${
                 game.isPaused
-                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30'
-                  : 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25'
+                  ? 'bg-electric-cyan/20 border-electric-cyan text-bone-cream hover:bg-electric-cyan/30'
+                  : 'bg-tactical-slate border-steel-border text-muted-steel hover:text-bone-cream hover:border-steel-border/90'
               }`}
             >
               {game.isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
-              {game.isPaused ? 'Resume Round 1' : 'Pause Round 1'}
+              {game.isPaused ? 'RESUME ROUND 1' : 'PAUSE ROUND 1'}
             </button>
           )}
 
           <button
             onClick={() => setShowResetR1Modal(true)}
             disabled={isActionLoading}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs font-medium text-mosaic-muted hover:text-white transition-colors cursor-pointer"
+            className="arcade-btn-secondary flex items-center gap-1.5 px-4 py-2 text-xs font-arcade uppercase tracking-wider cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset Round 1
+            RESET ROUND 1
           </button>
 
           {!isComplete && (
             <button
               onClick={() => setShowTerminateR1Modal(true)}
               disabled={isActionLoading}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-neon-red/10 border border-neon-red/40 rounded-xl text-xs font-arcade font-bold text-neon-red hover:bg-neon-red/20 transition-colors cursor-pointer uppercase tracking-wider"
             >
               <StopCircle className="w-3.5 h-3.5" />
-              Terminate Round 1
+              TERMINATE ROUND 1
             </button>
           )}
 
           <button
             onClick={onRefresh}
-            className="px-3.5 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs font-medium text-mosaic-muted hover:text-white transition-colors cursor-pointer"
+            className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase tracking-wider cursor-pointer"
           >
-            Refresh
+            REFRESH
           </button>
         </div>
       </div>
 
       {/* Paused Alert Banner */}
       {game.isPaused && (
-        <div className="p-4 bg-amber-500/15 border border-amber-500/40 rounded-2xl flex items-center justify-between gap-4 text-amber-300">
+        <div className="p-4 bg-yellow-500/15 border border-yellow-500/40 rounded-2xl flex items-center justify-between gap-4 text-yellow-300 font-tech">
           <div className="flex items-center gap-3">
-            <Pause className="w-5 h-5 text-amber-400 shrink-0" />
+            <Pause className="w-5 h-5 text-yellow-400 shrink-0" />
             <div>
-              <p className="font-bold text-sm text-white">ROUND 1 IS CURRENTLY PAUSED</p>
-              <p className="text-xs text-amber-300/80">Authoritative server timer is frozen. Player scanning and answering are rejected until resumed.</p>
+              <p className="font-arcade font-bold text-sm text-bone-cream uppercase">ROUND 1 IS CURRENTLY SUSPENDED</p>
+              <p className="text-xs text-yellow-300/80">Authoritative server clock is frozen. Player scanning and answering are rejected until resumed.</p>
             </div>
           </div>
           <button
             onClick={handleTogglePause}
-            className="px-4 py-2 bg-amber-500 text-black font-bold text-xs rounded-xl hover:bg-amber-400 cursor-pointer whitespace-nowrap"
+            className="px-4 py-2 bg-yellow-500 text-black font-arcade font-bold text-xs uppercase rounded-xl hover:bg-yellow-400 cursor-pointer whitespace-nowrap tracking-wider"
           >
-            Resume Now
+            RESUME NOW
           </button>
         </div>
       )}
 
       {actionError && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-          <p className="text-red-400 text-sm">{actionError}</p>
+        <div className="p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-neon-red shrink-0" />
+          <p className="text-neon-red text-xs font-tech">{actionError}</p>
         </div>
       )}
 
       {isComplete && (
-        <div className="bg-gradient-to-r from-yellow-500/15 via-mosaic-surface to-mosaic-surface border border-yellow-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl shadow-yellow-500/5">
+        <div className="arcade-card p-6 border-glow-cyan flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5 text-yellow-400" /> Round 1 is Complete!
+            <h3 className="text-bone-cream font-display uppercase tracking-wider text-2xl flex items-center gap-2">
+              <Shield className="w-5 h-5 text-electric-cyan" /> ROUND 1 BLUEPRINT DECRYPTED!
             </h3>
-            <p className="text-mosaic-muted text-sm mt-1">
-              Advance all players to the Transition phase to secretly assign roles (1 Imposter) and physical task zones.
+            <p className="text-muted-steel text-xs font-tech mt-1">
+              Advance squadron to the Transition phase to secretly assign roles (1 Imposter) and physical task zones.
             </p>
           </div>
           <button
             onClick={handleStartTransition}
             disabled={isActionLoading}
-            className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold rounded-xl hover:opacity-90 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+            className="arcade-btn-primary px-6 py-3.5 text-xs font-arcade uppercase tracking-widest flex items-center gap-2 whitespace-nowrap cursor-pointer disabled:opacity-40"
           >
             {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-            START TRANSITION & ROLE ASSIGNMENT
+            INITIATE TRANSITION & ROLE ASSIGNMENT
           </button>
         </div>
       )}
@@ -1270,76 +1311,76 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Large Master Countdown */}
         <div
-          className={`bg-mosaic-surface border rounded-2xl p-5 ${
-            isCritical && !isComplete ? 'border-red-500/50 bg-red-500/5' : 'border-mosaic-border'
+          className={`arcade-card p-5 ${
+            isCritical && !isComplete ? 'border-glow-red' : 'border-steel-border'
           }`}
         >
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Master Timer</p>
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">MASTER CHRONOMETER</p>
           {isComplete ? (
-            <p className="text-3xl font-bold text-zinc-400">0:00</p>
+            <p className="text-4xl font-arcade font-black text-muted-steel">0:00</p>
           ) : (
             <p
-              className={`text-4xl font-mono font-bold tabular-nums ${
-                isCritical ? 'text-red-400 animate-pulse' : 'text-white'
+              className={`text-4xl font-arcade font-black tabular-nums ${
+                isCritical ? 'text-neon-red glow-text-red animate-pulse' : 'text-bone-cream glow-text-cyan'
               }`}
             >
               {timer}
             </p>
           )}
-          <p className="text-xs text-mosaic-muted mt-2">Authoritative server sync</p>
+          <p className="text-[10px] text-muted-steel font-arcade uppercase mt-2">AUTHORITATIVE CLOCK</p>
         </div>
 
         {/* Puzzle Progress */}
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Puzzle Solved</p>
-          <p className="text-4xl font-bold text-white">
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">BLUEPRINT SOLVED</p>
+          <p className="text-4xl font-arcade font-black text-bone-cream">
             {puzzleUnlocked}
-            <span className="text-mosaic-muted text-2xl font-normal">/{totalPieces}</span>
+            <span className="text-muted-steel text-xl font-normal font-arcade">/{totalPieces}</span>
           </p>
-          <div className="mt-3 h-2 bg-mosaic-dark rounded-full overflow-hidden">
+          <div className="mt-3 h-2 bg-corridor rounded-full overflow-hidden border border-steel-border">
             <div
-              className="h-full bg-gradient-to-r from-mosaic-accent to-mosaic-purple transition-all duration-500 rounded-full"
+              className="h-full bg-gradient-to-r from-neon-red to-electric-cyan transition-all duration-500 rounded-full"
               style={{ width: `${puzzlePct}%` }}
             />
           </div>
         </div>
 
         {/* QR Completed */}
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">QRs Solved</p>
-          <p className="text-4xl font-bold text-white">
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">QRS DECRYPTED</p>
+          <p className="text-4xl font-arcade font-black text-bone-cream">
             {game.qrMappings?.filter((m) => m.isCompleted).length ?? 0}
-            <span className="text-mosaic-muted text-2xl font-normal">/{game.qrMappings?.length ?? 10}</span>
+            <span className="text-muted-steel text-xl font-normal font-arcade">/{game.qrMappings?.length ?? 10}</span>
           </p>
-          <p className="text-xs text-mosaic-muted mt-2">Fixed physical QR pool</p>
+          <p className="text-[10px] text-muted-steel font-arcade uppercase mt-2">MASTER BEACON POOL</p>
         </div>
 
         {/* Round Result / Phase */}
         <div
-          className={`bg-mosaic-surface border rounded-2xl p-5 ${
-            isComplete ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-mosaic-border'
+          className={`arcade-card p-5 ${
+            isComplete ? 'border-glow-cyan' : 'border-steel-border'
           }`}
         >
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Round Status</p>
-          <p className={`text-2xl font-bold ${isComplete ? 'text-emerald-400' : 'text-white'}`}>
-            {isComplete ? 'ROUND COMPLETE' : 'IN PROGRESS'}
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">SECTOR STATUS</p>
+          <p className={`text-xl font-arcade font-bold uppercase tracking-wider ${isComplete ? 'text-electric-cyan glow-text-cyan' : 'text-bone-cream'}`}>
+            {isComplete ? 'SECTOR SECURED' : 'OPERATIONAL'}
           </p>
-          <p className="text-xs text-mosaic-muted mt-2">
-            {game.result ? `Result: ${game.result}` : 'Awaiting completion'}
+          <p className="text-[10px] text-muted-steel font-arcade uppercase mt-2">
+            {game.result ? `OUTCOME: ${game.result}` : 'AWAITING COMPLETION'}
           </p>
         </div>
       </div>
 
       {/* Visual Puzzle Pieces State */}
-      <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
+      <div className="arcade-card-elevated p-6 border-steel-border">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white font-semibold flex items-center gap-2">
-            <Puzzle className="w-4 h-4 text-mosaic-accent" /> Puzzle Blueprint Pieces
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+            <Puzzle className="w-4 h-4 text-electric-cyan" /> BLUEPRINT FRAGMENTS
           </h2>
-          <span className="text-xs text-mosaic-muted">
+          <span className="text-xs font-arcade text-muted-steel uppercase tracking-wider">
             {puzzleUnlocked === totalPieces && totalPieces > 0
-              ? '🎉 Full Blueprint Unlocked!'
-              : `${totalPieces - puzzleUnlocked} pieces remaining`}
+              ? 'FULL BLUEPRINT DECRYPTED'
+              : `${totalPieces - puzzleUnlocked} FRAGMENTS SEALED`}
           </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -1348,23 +1389,23 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
               key={piece.pieceIndex}
               className={`p-4 rounded-xl border text-center transition-all ${
                 piece.isUnlocked
-                  ? 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
-                  : 'bg-mosaic-dark/80 border-mosaic-border/60 text-mosaic-muted'
+                  ? 'bg-electric-cyan/15 border-electric-cyan text-electric-cyan shadow-[0_0_15px_rgba(0,229,255,0.25)]'
+                  : 'bg-corridor border-steel-border text-muted-steel/60'
               }`}
             >
               <div className="flex justify-center mb-2">
                 {piece.isUnlocked ? (
-                  <CheckCircle className="w-5 h-5 text-cyan-400" />
+                  <CheckCircle className="w-5 h-5 text-electric-cyan" />
                 ) : (
-                  <Lock className="w-5 h-5 text-mosaic-muted/50" />
+                  <Lock className="w-5 h-5 text-muted-steel/40" />
                 )}
               </div>
-              <p className="font-mono font-bold text-sm text-white">Piece {piece.pieceIndex + 1}</p>
-              <p className="text-[11px] mt-1">
+              <p className="font-arcade font-bold text-sm text-bone-cream">FRAGMENT {piece.pieceIndex + 1}</p>
+              <p className="text-[11px] font-arcade uppercase mt-1">
                 {piece.isUnlocked ? (
-                  <span className="text-cyan-400 font-medium">✓ Unlocked</span>
+                  <span className="text-electric-cyan font-bold">UNLOCKED</span>
                 ) : (
-                  <span className="text-mosaic-muted/60">Locked</span>
+                  <span className="text-muted-steel/60">SEALED</span>
                 )}
               </p>
             </div>
@@ -1374,43 +1415,45 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* QR Codes Mapping & Status */}
       {game.qrMappings && game.qrMappings.length > 0 && (
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4">Physical QR Codes Status (QR-01 through QR-10)</h2>
+        <div className="arcade-card p-6 border-steel-border">
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4">
+            PHYSICAL MASTER BEACONS (QR-01 THROUGH QR-10)
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {game.qrMappings.map((m) => (
               <div
                 key={m.qrCodeId}
-                className={`p-4 rounded-xl border transition-all ${
+                className={`p-3.5 rounded-xl border transition-all ${
                   m.isCompleted
                     ? m.qrType === 'PUZZLE'
-                      ? 'bg-cyan-500/10 border-cyan-400/40'
-                      : 'bg-purple-500/10 border-purple-400/40'
-                    : 'bg-mosaic-dark border-mosaic-border/50'
+                      ? 'bg-electric-cyan/10 border-electric-cyan/40 text-bone-cream'
+                      : 'bg-neon-red/10 border-neon-red/40 text-bone-cream'
+                    : 'bg-corridor border-steel-border text-muted-steel'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono font-bold text-sm text-white">{m.qrCodeId}</span>
+                  <span className="font-arcade font-bold text-sm text-bone-cream">{m.qrCodeId}</span>
                   <span
-                    className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-arcade uppercase ${
                       m.qrType === 'PUZZLE'
-                        ? 'bg-cyan-500/20 text-cyan-300'
-                        : 'bg-purple-500/20 text-purple-300'
+                        ? 'bg-electric-cyan/20 text-electric-cyan'
+                        : 'bg-neon-red/20 text-neon-red'
                     }`}
                   >
                     {m.qrType}
                   </span>
                 </div>
-                <p className="text-xs text-mosaic-muted mt-1">
+                <p className="text-xs text-muted-steel font-tech mt-1">
                   {m.qrType === 'PUZZLE' && m.puzzlePieceIndex !== null
-                    ? `Piece #${m.puzzlePieceIndex + 1}`
-                    : 'Decoy QR'}
+                    ? `Fragment #${m.puzzlePieceIndex + 1}`
+                    : 'Decoy Beacon'}
                 </p>
-                <div className="mt-2 pt-2 border-t border-mosaic-border/40 flex items-center justify-between text-xs">
-                  <span className="text-mosaic-muted">{m.questionsCount} Qs</span>
+                <div className="mt-2 pt-2 border-t border-steel-border/60 flex items-center justify-between text-xs font-arcade">
+                  <span className="text-muted-steel">{m.questionsCount} Qs</span>
                   {m.isCompleted ? (
-                    <span className="text-emerald-400 font-medium">✓ Solved</span>
+                    <span className="text-electric-cyan font-bold">SOLVED</span>
                   ) : (
-                    <span className="text-zinc-500">Unsolved</span>
+                    <span className="text-muted-steel/50">SEALED</span>
                   )}
                 </div>
               </div>
@@ -1420,9 +1463,9 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
       )}
 
       {/* Player Status & Lives */}
-      <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-        <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-4 h-4 text-mosaic-accent" /> Player Lives & Status
+      <div className="arcade-card-elevated p-6 border-steel-border">
+        <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-electric-cyan" /> OPERATIVES STATUS & VITALITY
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {game.players.map((p) => (
@@ -1430,16 +1473,16 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
               key={p.id}
               className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
                 p.lives === 0
-                  ? 'bg-red-500/10 border-red-500/40'
+                  ? 'bg-neon-red/10 border-neon-red/40'
                   : p.lives === 1
                   ? 'bg-yellow-500/10 border-yellow-500/30'
-                  : 'bg-mosaic-dark border-mosaic-border/50'
+                  : 'bg-corridor border-steel-border'
               }`}
             >
               <div>
-                <p className="text-sm font-semibold text-white">{p.playerName}</p>
-                <p className="text-xs text-mosaic-muted">
-                  {p.lives === 0 ? '❌ 0 lives (Round Over)' : `${p.lives} / 2 lives`}
+                <p className="text-sm font-semibold text-bone-cream font-tech">{p.playerName}</p>
+                <p className="text-xs text-muted-steel font-arcade uppercase">
+                  {p.lives === 0 ? 'TERMINATED' : `${p.lives} / 2 VITALITY`}
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -1447,7 +1490,7 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
                   <div
                     key={i}
                     className={`w-3.5 h-3.5 rounded-full transition-all ${
-                      i < p.lives ? 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]' : 'bg-zinc-700'
+                      i < p.lives ? 'bg-neon-red shadow-[0_0_8px_rgba(255,30,66,0.6)]' : 'bg-corridor border border-steel-border'
                     }`}
                   />
                 ))}
@@ -1459,23 +1502,23 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Recent Activity Log */}
       {game.recentEvents && game.recentEvents.length > 0 && (
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-mosaic-accent" /> Recent Activity Log
+        <div className="arcade-card p-6 border-steel-border">
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-electric-cyan" /> LIVE TACTICAL LOG
           </h2>
           <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
             {game.recentEvents.slice().reverse().map((ev) => (
               <div
                 key={ev._id}
-                className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-lg bg-mosaic-dark/80 border border-mosaic-border/40"
+                className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-corridor border border-steel-border"
               >
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-mosaic-accent font-semibold">{ev.eventType}</span>
-                  <span className="text-mosaic-muted truncate max-w-xs">
+                  <span className="font-arcade text-neon-red font-bold text-[11px]">{ev.eventType}</span>
+                  <span className="text-muted-steel truncate max-w-xs font-tech">
                     {ev.eventData ? JSON.stringify(ev.eventData) : ''}
                   </span>
                 </div>
-                <span className="text-mosaic-muted/60 shrink-0 ml-4 font-mono">
+                <span className="text-muted-steel/60 shrink-0 ml-4 font-arcade text-[10px]">
                   {new Date(ev.occurredAt).toLocaleTimeString()}
                 </span>
               </div>
@@ -1486,32 +1529,32 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Confirmation Modal: Emergency End */}
       {showEndModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-red-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center gap-3 text-red-400 mb-3">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-glow-red shadow-2xl">
+            <div className="flex items-center gap-3 text-neon-red mb-3">
               <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Emergency End Round 1?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">EMERGENCY END ROUND 1?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed mb-6">
-              This will immediately freeze all puzzle progress, stop new QR scans, and end Round 1 for all players. This action cannot be undone.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed mb-6">
+              This will immediately freeze all puzzle progress, stop new QR scans, and terminate Round 1 for all operatives. This action cannot be reversed.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowEndModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleEmergencyEnd}
-                className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm End Round
+                CONFIRM END
               </button>
             </div>
           </div>
@@ -1520,65 +1563,66 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Confirmation Modal: Restart Game */}
       {showRestartModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-steel-border shadow-2xl">
             <div className="flex items-center gap-3 text-yellow-400 mb-3">
               <RotateCcw className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Restart Game to Lobby?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">RESTART TO RADAR LOBBY?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed mb-6">
-              This will reset puzzle pieces, restore all player lives to 2, and return the game to LOBBY status. Existing players will remain connected.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed mb-6">
+              This will reset blueprint pieces, restore all operative vitality to 2, and return the session to LOBBY status. Operatives remain connected.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowRestartModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleRestart}
-                className="px-4 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm Restart
+                CONFIRM RESTART
               </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Confirmation Modal: Reset Round 1 */}
       {showResetR1Modal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-steel-border shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-yellow-400">
               <RotateCcw className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Reset Round 1?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">RESET ROUND 1?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed">
-              This resets Round 1 specific state: the master timer restarts to the configured duration (4 minutes), player lives are restored to starting lives, and unlocked puzzle pieces are locked again. Round 2 state, configuration snapshots, and connected players remain unchanged.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed">
+              This resets Round 1 specific state: the master chronometer restarts to 4 minutes, operative vitality is restored to 2, and blueprint fragments are locked again. Connected operatives remain authenticated.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowResetR1Modal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleResetRound1}
-                className="px-4 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm Reset Round 1
+                CONFIRM RESET
               </button>
             </div>
           </div>
@@ -1587,32 +1631,32 @@ function Round1Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Confirmation Modal: Terminate Round 1 */}
       {showTerminateR1Modal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-red-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-red-400">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-glow-red shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-neon-red">
               <StopCircle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Terminate Round 1?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">TERMINATE ROUND 1?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed">
-              This will immediately stop Round 1, stop its timers, mark Round 1 complete, and reject any further answer attempts.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed">
+              This will immediately halt Round 1, stop all timers, mark Round 1 complete, and reject any further answer attempts.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowTerminateR1Modal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleTerminateRound1}
-                className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm Terminate
+                CONFIRM TERMINATE
               </button>
             </div>
           </div>
@@ -1737,46 +1781,46 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
   const isComplete = phase === GAME_PHASE.GAME_COMPLETE;
 
   const phaseLabel: Record<string, string> = {
-    ROUND_1_COMPLETE: 'Round 1 Complete — Start Transition',
-    TRANSITION: 'Transition (Role Assignment)',
-    ROUND_2_ACTIVE: 'Round 2 Active',
-    BODY_REPORT: 'Body Report Window',
-    MOVE_TO_VOTING: 'Moving to Voting',
-    VOTING: 'Voting in Progress',
-    GAME_COMPLETE: 'Game Complete',
+    ROUND_1_COMPLETE: 'ROUND 1 COMPLETE — START TRANSITION',
+    TRANSITION: 'TRANSITION (ROLE ASSIGNMENT)',
+    ROUND_2_ACTIVE: 'ROUND 2 ACTIVE DECEPTION',
+    BODY_REPORT: 'BODY REPORT WINDOW',
+    MOVE_TO_VOTING: 'MOVING TO VOTING ROOM',
+    VOTING: 'SECRET BALLOT IN PROGRESS',
+    GAME_COMPLETE: 'OPERATION CONCLUDED',
   };
 
   const aliveCount = game.players.filter(p => p.status === 'ALIVE').length;
   const eliminatedCount = game.players.filter(p => p.status === 'ELIMINATED').length;
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-5xl space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">{game.teamName}</h1>
-          <p className="text-mosaic-muted text-sm mt-1">
-            Phase 3: Deception • <span className="font-mono text-mosaic-accent">{game.gameCode}</span>
+          <h1 className="text-4xl font-display uppercase tracking-wider text-bone-cream">{game.teamName}</h1>
+          <p className="text-muted-steel text-xs font-arcade tracking-widest mt-1 uppercase">
+            PHASE 3: DECEPTION • ACCESS CODE: <span className="text-neon-red font-bold font-arcade">{game.gameCode}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+          <span className={`px-3 py-1 text-xs font-arcade font-bold rounded-full border uppercase tracking-wider ${
             isComplete ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-            : isRound2 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            : isRound2 ? 'bg-electric-cyan/15 text-electric-cyan border-electric-cyan/40 glow-text-cyan'
             : isTransition ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-            : 'bg-red-500/10 text-red-400 border-red-500/30'
+            : 'bg-neon-red/15 text-neon-red border-neon-red/40 glow-text-red'
           }`}>
             {phaseLabel[phase] ?? phase.replace(/_/g, ' ')}
           </span>
-          <button onClick={onRefresh} className="px-3 py-2 bg-mosaic-surface border border-mosaic-border rounded-xl text-xs text-mosaic-muted hover:text-white transition-colors cursor-pointer">
-            Refresh
+          <button onClick={onRefresh} className="arcade-btn-secondary px-3.5 py-2 text-xs font-arcade uppercase cursor-pointer">
+            REFRESH
           </button>
         </div>
       </div>
 
       {actionError && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-          <p className="text-red-400 text-sm">{actionError}</p>
+        <div className="p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-neon-red shrink-0" />
+          <p className="text-neon-red text-xs font-tech">{actionError}</p>
         </div>
       )}
 
@@ -1786,32 +1830,32 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
           <div className="flex items-center gap-3">
             <Pause className="w-6 h-6 shrink-0 text-yellow-400 animate-pulse" />
             <div>
-              <p className="font-bold text-sm tracking-wide">ROUND 2 PAUSED BY GAME MASTER</p>
-              <p className="text-xs text-yellow-300/80">
-                All timers are authoritatively frozen on the server. Player actions (kills, reports, votes) are blocked until resumed.
+              <p className="font-arcade font-bold text-sm uppercase tracking-wide">ROUND 2 SUSPENDED BY GAME MASTER</p>
+              <p className="text-xs text-yellow-300/80 font-tech">
+                All timers are authoritatively frozen on the server. Operative tactical actions are blocked until resumed.
               </p>
             </div>
           </div>
           <button
             onClick={handleTogglePauseR2}
             disabled={isActionLoading}
-            className="px-4 py-2 bg-yellow-400 text-black font-bold text-xs rounded-xl hover:bg-yellow-300 transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-yellow-400 text-black font-arcade font-bold text-xs uppercase rounded-xl hover:bg-yellow-300 transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer tracking-wider"
           >
             {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
-            Resume Game
+            RESUME SESSION
           </button>
         </div>
       )}
 
       {/* GM Round 2 Controls Bar (Pause, Reset Round 2, Terminate Round 2) */}
       {!isComplete && phase !== GAME_PHASE.ROUND_1_COMPLETE && (
-        <div className="bg-mosaic-surface/90 border border-mosaic-border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="arcade-card p-4 flex flex-wrap items-center justify-between gap-3 border-steel-border">
           <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-mosaic-accent" />
-            <span className="text-xs font-semibold text-white uppercase tracking-wider">Round 2 Control Center</span>
+            <Shield className="w-4 h-4 text-electric-cyan" />
+            <span className="text-xs font-arcade font-bold text-bone-cream uppercase tracking-wider">ROUND 2 COMMAND CENTER</span>
             {game.roundRevision ? (
-              <span className="text-[10px] bg-mosaic-dark px-2 py-0.5 rounded font-mono text-mosaic-muted">
-                rev #{game.roundRevision}
+              <span className="text-[10px] bg-corridor px-2 py-0.5 rounded font-arcade text-muted-steel border border-steel-border">
+                REV #{game.roundRevision}
               </span>
             ) : null}
           </div>
@@ -1819,30 +1863,30 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
             <button
               onClick={handleTogglePauseR2}
               disabled={isActionLoading}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 text-xs font-arcade font-bold uppercase rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer ${
                 game.isPaused
                   ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40 hover:bg-yellow-500/30'
-                  : 'bg-mosaic-dark text-mosaic-muted border-mosaic-border hover:text-white'
+                  : 'bg-corridor text-muted-steel border-steel-border hover:text-bone-cream'
               }`}
             >
               {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : game.isPaused ? <PlayCircle className="w-3.5 h-3.5 text-yellow-400" /> : <Pause className="w-3.5 h-3.5" />}
-              {game.isPaused ? 'Resume Round 2' : 'Pause Round 2'}
+              {game.isPaused ? 'RESUME ROUND 2' : 'PAUSE ROUND 2'}
             </button>
             <button
               onClick={() => setShowResetR2Modal(true)}
               disabled={isActionLoading}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-yellow-500/30 text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="arcade-btn-secondary px-3.5 py-1.5 text-xs font-arcade uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              Reset Round 2
+              RESET ROUND 2
             </button>
             <button
               onClick={() => setShowTerminateR2Modal(true)}
               disabled={isActionLoading}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-arcade font-bold uppercase rounded-xl border border-neon-red/40 text-neon-red bg-neon-red/10 hover:bg-neon-red/20 transition-colors flex items-center gap-1.5 cursor-pointer tracking-wider"
             >
               <StopCircle className="w-3.5 h-3.5" />
-              Terminate Round 2
+              TERMINATE ROUND 2
             </button>
           </div>
         </div>
@@ -1850,41 +1894,41 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* GM Action Controls */}
       {phase === GAME_PHASE.ROUND_1_COMPLETE && (
-        <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-yellow-400" /> Start Transition Phase
+        <div className="arcade-card p-6 border-steel-border">
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-electric-cyan" /> START TRANSITION PHASE
           </h2>
-          <p className="text-mosaic-muted text-sm mb-4">
-            This will randomly assign roles (1 Imposter, rest Crewmates) and physical tasks. Each player receives their secret role privately.
+          <p className="text-muted-steel text-xs font-tech mb-4">
+            This will randomly assign secret roles (1 Imposter, rest Crewmates) and physical tasks. Each operative receives their private dossier securely.
           </p>
           <button
             onClick={handleStartTransition}
             disabled={isTransitioning}
-            className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+            className="arcade-btn-primary px-6 py-3 text-xs font-arcade uppercase tracking-widest flex items-center gap-2 cursor-pointer disabled:opacity-40"
           >
-            {isTransitioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-black" />}
-            Begin Transition
+            {isTransitioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+            BEGIN TRANSITION
           </button>
         </div>
       )}
 
       {isTransition && (
-        <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
-              <Clock className="w-4 h-4 text-yellow-400" /> Transition Timer
+        <div className="arcade-card p-6 border-glow-cyan">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+              <Clock className="w-4 h-4 text-electric-cyan" /> TRANSITION CHRONOMETER
             </h2>
-            <div className="text-2xl font-mono font-bold text-yellow-300">{phaseTimer}</div>
+            <div className="text-3xl font-arcade font-black text-electric-cyan glow-text-cyan">{phaseTimer}</div>
           </div>
-          <p className="text-mosaic-muted text-sm mb-4">
-            Players are reading their secret roles and task assignments. When ready, manually start Round 2 (or it auto-starts when timer expires).
+          <p className="text-muted-steel text-xs font-tech mb-4">
+            Operatives are committing their assignments to memory. When ready, manually launch Round 2 or allow the timer to expire.
           </p>
           <button
             onClick={handleStartRound2}
             disabled={isStartingR2}
-            className="px-6 py-3 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-black font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-lg shadow-mosaic-accent/20"
+            className="arcade-btn-primary px-6 py-3.5 text-xs font-arcade uppercase tracking-widest flex items-center gap-2 cursor-pointer disabled:opacity-40"
           >
-            {isStartingR2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-black" />}
+            {isStartingR2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
             START ROUND 2 NOW
           </button>
         </div>
@@ -1892,41 +1936,45 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Status KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">R2 Master Timer</p>
-          <p className="text-3xl font-mono font-bold text-white">{r2Timer || '—'}</p>
-          <p className="text-xs text-mosaic-muted mt-1">Continuous</p>
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">R2 MASTER CLOCK</p>
+          <p className="text-3xl sm:text-4xl font-arcade font-black text-bone-cream tabular-nums">{r2Timer || '—'}</p>
+          <p className="text-[10px] text-muted-steel font-arcade uppercase mt-1">CONTINUOUS</p>
         </div>
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Kills</p>
-          <p className="text-3xl font-bold text-red-400">{game.killCount ?? 0}<span className="text-mosaic-muted text-xl font-normal">/2</span></p>
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">CASUALTIES</p>
+          <p className="text-3xl sm:text-4xl font-arcade font-black text-neon-red glow-text-red">
+            {game.killCount ?? 0}<span className="text-muted-steel text-xl font-normal font-arcade">/2</span>
+          </p>
         </div>
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Alive / Dead</p>
-          <p className="text-3xl font-bold text-emerald-400">{aliveCount} <span className="text-mosaic-muted text-xl font-normal">/ {eliminatedCount}</span></p>
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">ALIVE / KIA</p>
+          <p className="text-3xl sm:text-4xl font-arcade font-black text-electric-cyan glow-text-cyan">
+            {aliveCount} <span className="text-muted-steel text-xl font-normal font-arcade">/ {eliminatedCount}</span>
+          </p>
         </div>
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-5">
-          <p className="text-mosaic-muted text-xs font-medium mb-1 uppercase tracking-wider">Voting Cycles</p>
-          <p className="text-3xl font-bold text-purple-400">{game.votingCycle ?? 0}</p>
+        <div className="arcade-card p-5 border-steel-border">
+          <p className="text-muted-steel text-[10px] font-arcade uppercase tracking-widest mb-1">BALLOT CYCLES</p>
+          <p className="text-3xl sm:text-4xl font-arcade font-black text-bone-cream">{game.votingCycle ?? 0}</p>
         </div>
       </div>
 
       {/* Phase status card */}
       {(isBodyReport || isMoveToVoting || isVoting) && (
-        <div className={`bg-mosaic-surface border rounded-2xl p-5 ${
-          isBodyReport ? 'border-red-500/40' : isMoveToVoting ? 'border-yellow-500/40' : 'border-purple-500/40'
+        <div className={`arcade-card p-5 ${
+          isBodyReport ? 'border-glow-red' : isMoveToVoting ? 'border-2 border-neon-red/70 animate-pulse' : 'border-glow-cyan'
         }`}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-mosaic-muted mb-1">Current Sub-Phase</p>
-              <p className={`text-xl font-bold ${
-                isBodyReport ? 'text-red-300' : isMoveToVoting ? 'text-yellow-300' : 'text-purple-300'
+              <p className="text-[10px] font-arcade uppercase tracking-widest text-muted-steel mb-1">CURRENT OPERATIONAL PHASE</p>
+              <p className={`text-xl font-display uppercase tracking-wider ${
+                isBodyReport ? 'text-neon-red glow-text-red' : isMoveToVoting ? 'text-yellow-300' : 'text-electric-cyan glow-text-cyan'
               }`}>
-                {isBodyReport ? 'Body Report Window' : isMoveToVoting ? 'Move to Voting' : 'Voting'}
+                {isBodyReport ? 'BODY REPORT WINDOW' : isMoveToVoting ? 'MOVE TO VOTING ROOM' : 'BALLOT IN PROGRESS'}
               </p>
             </div>
-            <div className={`text-3xl font-mono font-bold ${
-              isBodyReport ? 'text-red-400' : isMoveToVoting ? 'text-yellow-400' : 'text-purple-400'
+            <div className={`text-4xl font-arcade font-black tabular-nums ${
+              isBodyReport ? 'text-neon-red glow-text-red' : isMoveToVoting ? 'text-yellow-400' : 'text-electric-cyan glow-text-cyan'
             }`}>
               {phaseTimer}
             </div>
@@ -1936,13 +1984,13 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Result card */}
       {isComplete && (
-        <div className="bg-mosaic-surface border border-emerald-500/30 rounded-2xl p-6 text-center">
-          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-          <h2 className="text-2xl font-bold text-white mb-1">Game Complete!</h2>
-          <p className={`text-lg font-semibold ${
-            game.result === 'CREWMATES_WIN' ? 'text-emerald-400'
-            : game.result?.includes('IMPOSTER') ? 'text-red-400'
-            : 'text-mosaic-muted'
+        <div className="arcade-card p-6 text-center border-glow-cyan">
+          <CheckCircle className="w-12 h-12 text-electric-cyan mx-auto mb-2 drop-shadow-[0_0_15px_rgba(0,229,255,0.6)]" />
+          <h2 className="text-3xl font-display uppercase tracking-wider text-bone-cream mb-1">OPERATION COMPLETE</h2>
+          <p className={`text-xl font-arcade font-bold uppercase tracking-wider ${
+            game.result === 'CREWMATES_WIN' ? 'text-electric-cyan glow-text-cyan'
+            : game.result?.includes('IMPOSTER') ? 'text-neon-red glow-text-red'
+            : 'text-muted-steel'
           }`}>
             {game.result?.replace(/_/g, ' ') ?? 'Game ended'}
           </p>
@@ -1951,32 +1999,32 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Kill History (Authorized GM View) */}
       {game.kills && game.kills.length > 0 && (
-        <div className="bg-mosaic-surface border border-red-500/30 rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-            <Skull className="w-4 h-4 text-red-400" /> Kill History ({game.kills.length}/2)
+        <div className="arcade-card p-6 border-glow-red">
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Skull className="w-4 h-4 text-neon-red" /> CASUALTY LOG ({game.kills.length}/2)
           </h2>
           <div className="space-y-3">
             {game.kills.map((k) => (
               <div
                 key={k.id || k.killNumber}
-                className="flex items-center justify-between p-3.5 bg-red-950/20 border border-red-900/30 rounded-xl"
+                className="flex items-center justify-between p-3.5 bg-corridor/90 border border-neon-red/30 rounded-xl"
               >
                 <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-red-500/20 text-red-400 font-mono">
-                    Kill #{k.killNumber}
+                  <span className="px-2.5 py-1 text-xs font-arcade font-bold rounded-lg bg-neon-red/20 text-neon-red uppercase">
+                    KILL #{k.killNumber}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-white">
-                      Victim: <span className="text-red-400 font-bold">{k.victimPlayerName}</span>
-                      <span className="text-xs text-mosaic-muted ml-2">(Eliminated)</span>
+                    <p className="text-sm font-tech font-semibold text-bone-cream">
+                      Victim: <span className="text-neon-red font-bold">{k.victimPlayerName}</span>
+                      <span className="text-xs text-muted-steel ml-2 font-arcade">(ELIMINATED)</span>
                     </p>
-                    <p className="text-xs text-mosaic-muted mt-0.5">
-                      Imposter: <span className="text-zinc-300 font-medium">{k.imposterPlayerName}</span>
+                    <p className="text-xs text-muted-steel mt-0.5 font-tech">
+                      Imposter: <span className="text-bone-cream font-medium">{k.imposterPlayerName}</span>
                     </p>
                   </div>
                 </div>
                 <span
-                  className="text-xs font-mono text-mosaic-muted"
+                  className="text-xs font-arcade text-muted-steel"
                   title={k.reportedAt ? new Date(k.reportedAt).toLocaleTimeString() : undefined}
                 >
                   {(k as any).elapsedFormatted || formatKillElapsed(k.reportedAt, game.round2StartedAt)}
@@ -1988,44 +2036,44 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
       )}
 
       {/* Players with roles */}
-      <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-        <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-4 h-4 text-mosaic-accent" /> Players (Roles visible to GM only)
+      <div className="arcade-card-elevated p-6 border-steel-border">
+        <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-electric-cyan" /> OPERATIVES MANIFEST (GM AUTHORIZED VIEW)
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {game.players.map(p => (
             <div key={p.id} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
               p.status === 'ELIMINATED'
-                ? 'bg-red-500/5 border-red-500/20'
+                ? 'bg-corridor/40 border-steel-border/50 text-muted-steel/60'
                 : p.role === 'IMPOSTER'
-                ? 'bg-red-950/30 border-red-700/40'
-                : 'bg-mosaic-dark border-mosaic-border/50'
+                ? 'bg-corridor border-neon-red/50 shadow-[0_0_12px_rgba(255,30,66,0.15)]'
+                : 'bg-corridor border-steel-border'
             }`}>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {p.role === 'IMPOSTER'
-                  ? <Skull className="w-4 h-4 text-red-400" />
-                  : <Shield className="w-4 h-4 text-emerald-400" />
+                  ? <Skull className="w-4 h-4 text-neon-red" />
+                  : <Shield className="w-4 h-4 text-electric-cyan" />
                 }
                 <div>
-                  <p className={`text-sm font-semibold ${p.status === 'ELIMINATED' ? 'line-through text-mosaic-muted' : 'text-white'}`}>
+                  <p className={`text-sm font-semibold font-tech ${p.status === 'ELIMINATED' ? 'line-through text-muted-steel/60' : 'text-bone-cream'}`}>
                     {p.playerName}
                   </p>
                   {p.assignedTaskName && (
-                    <p className="text-xs text-mosaic-muted">Zone {p.assignedTaskZone}: {p.assignedTaskName}</p>
+                    <p className="text-xs text-muted-steel font-tech">Zone 0{p.assignedTaskZone}: {p.assignedTaskName}</p>
                   )}
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                <span className={`text-[10px] font-arcade font-bold uppercase px-2 py-0.5 rounded-full border ${
                   p.role === 'IMPOSTER'
-                    ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    ? 'bg-neon-red/15 text-neon-red border-neon-red/30'
+                    : 'bg-electric-cyan/15 text-electric-cyan border-electric-cyan/30'
                 }`}>
-                  {p.role ?? 'Unassigned'}
+                  {p.role ?? 'UNASSIGNED'}
                 </span>
-                <span className={`text-xs ${
-                  p.status === 'ELIMINATED' ? 'text-red-400' :
-                  p.status === 'ALIVE' ? 'text-emerald-400' : 'text-mosaic-muted'
+                <span className={`text-[10px] font-arcade font-bold uppercase ${
+                  p.status === 'ELIMINATED' ? 'text-neon-red' :
+                  p.status === 'ALIVE' ? 'text-electric-cyan' : 'text-muted-steel'
                 }`}>
                   {p.status}
                 </span>
@@ -2037,18 +2085,18 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Recent Events */}
       {game.recentEvents && game.recentEvents.length > 0 && (
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6">
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-mosaic-accent" /> Recent Activity
+        <div className="arcade-card p-6 border-steel-border">
+          <h2 className="text-bone-cream font-arcade font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-electric-cyan" /> TACTICAL EVENT FEED
           </h2>
           <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
             {game.recentEvents.slice().reverse().map((ev) => (
-              <div key={ev._id} className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-lg bg-mosaic-dark/80 border border-mosaic-border/40">
+              <div key={ev._id} className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-corridor border border-steel-border">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-mosaic-accent font-semibold">{ev.eventType}</span>
-                  <span className="text-mosaic-muted truncate max-w-xs">{ev.eventData ? JSON.stringify(ev.eventData) : ''}</span>
+                  <span className="font-arcade text-neon-red font-bold text-[11px]">{ev.eventType}</span>
+                  <span className="text-muted-steel truncate max-w-xs font-tech">{ev.eventData ? JSON.stringify(ev.eventData) : ''}</span>
                 </div>
-                <span className="text-mosaic-muted/60 shrink-0 ml-4 font-mono">{new Date(ev.occurredAt).toLocaleTimeString()}</span>
+                <span className="text-muted-steel/60 shrink-0 ml-4 font-arcade text-[10px]">{new Date(ev.occurredAt).toLocaleTimeString()}</span>
               </div>
             ))}
           </div>
@@ -2057,32 +2105,32 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Confirmation Modal: Reset Round 2 */}
       {showResetR2Modal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-yellow-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-steel-border shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-yellow-400">
               <RotateCcw className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Reset Round 2?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">RESET ROUND 2?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed">
-              This will restart Round 2, regenerate secret roles and physical task assignments, restore player statuses to alive, reset kills to 0, reset voting cycles, and restart the Round 2 timer to full duration. Round 1 progress remains preserved.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed">
+              This will restart Round 2, regenerate secret roles and physical task assignments, restore operative vitality, reset casualties to 0, and reset the chronometer. Round 1 progress is preserved.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowResetR2Modal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleResetRound2}
-                className="px-4 py-2.5 rounded-xl bg-yellow-500 text-black font-semibold text-sm hover:bg-yellow-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm Reset Round 2
+                CONFIRM RESET
               </button>
             </div>
           </div>
@@ -2091,32 +2139,32 @@ function Round2Panel({ game, onRefresh }: { game: GmGameStateData; onRefresh: ()
 
       {/* Confirmation Modal: Terminate Round 2 */}
       {showTerminateR2Modal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-mosaic-surface border border-red-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-red-400">
+        <div className="fixed inset-0 z-50 bg-corridor/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="arcade-card p-6 max-w-md w-full border-glow-red shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-neon-red">
               <StopCircle className="w-6 h-6" />
-              <h3 className="text-lg font-bold text-white">Terminate Round 2?</h3>
+              <h3 className="text-xl font-display uppercase tracking-wider text-bone-cream">TERMINATE ROUND 2?</h3>
             </div>
-            <p className="text-mosaic-muted text-sm leading-relaxed">
-              This will immediately stop Round 2, mark the game complete with status ROUND_TERMINATED, stop all master and sub-phase timers, and freeze the dashboard.
+            <p className="text-muted-steel text-sm font-tech leading-relaxed">
+              This will immediately halt Round 2, mark the operation complete with status ROUND_TERMINATED, stop all timers, and freeze operative access.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setShowTerminateR2Modal(false)}
-                className="px-4 py-2.5 rounded-xl border border-mosaic-border text-mosaic-muted hover:text-white text-sm cursor-pointer"
+                className="arcade-btn-secondary px-4 py-2 text-xs font-arcade uppercase cursor-pointer"
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={handleTerminateRound2}
-                className="px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-400 transition-colors flex items-center gap-2 cursor-pointer"
+                className="arcade-btn-primary px-4 py-2 text-xs font-arcade uppercase flex items-center gap-2 cursor-pointer"
               >
                 {isActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Confirm Terminate
+                CONFIRM TERMINATE
               </button>
             </div>
           </div>
@@ -2264,14 +2312,14 @@ function QuestionsPanel() {
     <div className="max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Question Bank Management</h1>
-          <p className="text-mosaic-muted text-sm mt-0.5">
-            {questions.length} Questions Configured • Active Pool Q-001 through Q-050
+          <h1 className="text-3xl font-display uppercase tracking-widest text-bone-cream">Question Bank Management</h1>
+          <p className="text-muted-steel text-sm mt-0.5 font-arcade">
+            {questions.length} QUESTIONS CONFIGURED • ACTIVE POOL Q-001 THROUGH Q-050
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-mosaic-accent text-black font-semibold rounded-xl hover:bg-mosaic-accent/90 transition-colors cursor-pointer text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-neon-red text-white font-bold rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(255,30,66,0.35)] cursor-pointer text-xs font-arcade tracking-wider uppercase"
         >
           <Plus className="w-4 h-4" />
           Add Question
@@ -2286,19 +2334,19 @@ function QuestionsPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search questions or keywords..."
-            className="w-full bg-mosaic-surface border border-mosaic-border rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-mosaic-accent transition-colors"
+            className="w-full arcade-input text-white text-sm"
           />
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          <Filter className="w-4 h-4 text-mosaic-muted shrink-0" />
+          <Filter className="w-4 h-4 text-muted-steel shrink-0" />
           {QUESTION_CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-mosaic-accent text-black font-semibold'
-                  : 'bg-mosaic-surface border border-mosaic-border text-mosaic-muted hover:text-white'
+                  ? 'bg-neon-red text-white shadow-[0_0_10px_rgba(255,30,66,0.3)]'
+                  : 'bg-tactical-slate border border-mosaic-border text-muted-steel hover:text-white'
               }`}
             >
               {cat}
@@ -2601,20 +2649,20 @@ function HistoryPanel() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-mosaic-accent" />
-            Game History (Read-Only)
+          <h2 className="text-3xl font-display uppercase tracking-widest text-bone-cream flex items-center gap-2">
+            <History className="w-6 h-6 text-neon-red" />
+            Game History // Audit Logs
           </h2>
-          <p className="text-xs text-mosaic-muted mt-1">
-            Archived records of completed event games.
+          <p className="text-xs text-muted-steel mt-1 font-arcade uppercase tracking-wider">
+            Archived records of completed event games
           </p>
         </div>
         <button
           onClick={fetchHistory}
-          className="px-3 py-1.5 border border-mosaic-border rounded-xl text-xs text-mosaic-muted hover:text-white flex items-center gap-1.5 cursor-pointer"
+          className="px-3 py-1.5 border border-mosaic-border rounded-xl text-xs font-arcade tracking-wider text-muted-steel hover:text-white flex items-center gap-1.5 cursor-pointer hover:border-neon-red/40 transition-colors"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Refresh
+          <RotateCcw className="w-3.5 h-3.5 text-neon-red" />
+          REFRESH
         </button>
       </div>
 

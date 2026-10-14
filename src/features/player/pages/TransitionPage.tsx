@@ -83,8 +83,8 @@ export default function TransitionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-mosaic-dark flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-mosaic-accent border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-corridor flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-neon-red border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(255,30,66,0.5)]" />
       </div>
     );
   }
@@ -93,44 +93,66 @@ export default function TransitionPage() {
   const secs = secsLeft % 60;
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen arcade-corridor-bg text-bone-cream relative overflow-hidden flex flex-col items-center justify-center p-4">
+      <div className="absolute inset-0 arcade-grid opacity-30 pointer-events-none" />
+
+      <div className="w-full max-w-md space-y-5 relative z-10">
+        {/* Top ADG X MOSAIC Sub-badge */}
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-tactical-slate/90 border border-steel-border/80 rounded-full text-[11px] font-arcade tracking-widest text-muted-steel uppercase">
+            <span>ADG</span>
+            <span className="text-neon-red">✕</span>
+            <span>MOSAIC</span>
+            <span className="w-1 h-1 rounded-full bg-electric-cyan animate-ping" />
+          </div>
+        </div>
+
         {/* Transition Status Card */}
-        <div className="rounded-2xl p-8 border-2 border-mosaic-accent/40 bg-gradient-to-br from-mosaic-surface via-mosaic-dark to-mosaic-surface shadow-2xl text-center">
-          <div className="mb-4">
-            <Shield className="w-16 h-16 text-mosaic-accent mx-auto animate-pulse" />
+        <div className="arcade-card p-6 sm:p-8 text-center relative overflow-hidden border-glow-red">
+          <div className="absolute -top-12 -right-12 w-28 h-28 bg-neon-red/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="mb-4 inline-flex p-3 rounded-xl bg-corridor/90 border border-neon-red/40 shadow-[0_0_20px_rgba(255,30,66,0.3)]">
+            <Shield className="w-10 h-10 text-neon-red animate-pulse" />
           </div>
 
-          <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-mosaic-muted">
-            Round 2 Preparation
+          <div className="text-[11px] font-arcade uppercase tracking-[0.25em] text-neon-red mb-1">
+            ROUND 2 PREPARATION
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight mb-3">
-            Transitioning to Round 2
+          <h1 className="text-4xl sm:text-5xl font-display uppercase tracking-wider text-bone-cream drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mb-2">
+            TRANSITIONING
           </h1>
 
-          <p className="text-mosaic-muted text-sm leading-relaxed mb-4">
-            Roles (1 Imposter, remaining Crewmates) and physical task zones are being assigned server-side.
+          <p className="text-muted-steel text-sm sm:text-base leading-relaxed mb-5 font-tech">
+            Roles (1 Imposter, remaining Crewmates) and physical task sectors are being encrypted and dispatched.
           </p>
 
-          <div className="p-3 bg-mosaic-dark/80 border border-mosaic-border/60 rounded-xl text-xs text-mosaic-accent font-medium">
-            🔒 Roles and tasks remain secret until Round 2 begins.
+          <div className="p-3 bg-corridor/90 border border-steel-border rounded-xl text-xs sm:text-sm text-electric-cyan font-tech flex items-center justify-center gap-2 shadow-inner">
+            <span className="text-neon-red">🔒</span>
+            <span className="tracking-wide">Classified dossier remains sealed until Phase 2 initiation.</span>
           </div>
         </div>
 
         {/* Timer */}
-        <div className="bg-mosaic-surface/60 border border-mosaic-border rounded-2xl p-5 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Clock className="w-4 h-4 text-mosaic-muted" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-mosaic-muted">
-              Round 2 Begins In
+        <div className="arcade-card-elevated p-5 sm:p-6 text-center border-steel-border">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-electric-cyan" />
+            <span className="text-xs font-arcade uppercase tracking-widest text-muted-steel">
+              ROUND 2 BEGINS IN
             </span>
           </div>
-          <div className={`text-4xl font-mono font-black ${secsLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+          <div
+            className={`text-4xl sm:text-5xl font-arcade font-black tracking-widest ${
+              secsLeft <= 10 ? 'text-neon-red glow-text-red animate-pulse' : 'text-bone-cream glow-text-cyan'
+            }`}
+          >
             {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
           </div>
-          <p className="text-xs text-mosaic-muted mt-2">Get ready to receive your secret assignment.</p>
+          <p className="text-xs text-muted-steel/80 font-tech mt-2 uppercase tracking-wider">
+            Prepare to authenticate your operative assignment.
+          </p>
         </div>
       </div>
     </div>
   );
 }
+

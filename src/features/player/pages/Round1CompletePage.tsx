@@ -63,42 +63,65 @@ export default function Round1CompletePage() {
   const puzzleSuccess = unlockedCount === totalPieces && totalPieces > 0;
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex items-center justify-center p-4">
-      <div className="w-full max-w-sm text-center">
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-8 shadow-xl">
+    <div className="min-h-screen arcade-corridor-bg flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-x-hidden">
+      {/* Background arcade grid */}
+      <div className="absolute inset-0 arcade-grid opacity-40 pointer-events-none" />
+
+      <div className="w-full max-w-md sm:max-w-lg md:max-w-xl text-center space-y-4 relative z-10">
+        {/* Event Header Brand */}
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-[#1d2536] bg-black/60 backdrop-blur-md">
+            <span className="font-arcade text-xs tracking-[0.25em] text-[#8b9bb4] font-bold">ADG</span>
+            <span className="text-[#ff1e42] font-black text-xs">✕</span>
+            <span className="font-arcade text-xs tracking-[0.25em] text-[#fff1e6] font-bold">MOSAIC</span>
+          </div>
+        </div>
+
+        <div className="arcade-card p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#00e5ff] to-transparent opacity-80" />
+
           {!isLoaded ? (
-            <div className="py-8">
-              <div className="w-8 h-8 border-2 border-mosaic-accent border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="py-12">
+              <div className="w-10 h-10 border-2 border-[#00e5ff] border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="font-tech text-xs text-[#8b9bb4] uppercase tracking-widest mt-3">SYNCING CIPHER MATRIX...</p>
             </div>
           ) : (
             <>
-              {puzzleSuccess ? (
-                <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-              ) : (
-                <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-              )}
+              <div className="mb-4">
+                {puzzleSuccess ? (
+                  <div className="w-20 h-20 rounded-2xl bg-cyan-950/60 border border-[#00e5ff]/40 flex items-center justify-center mx-auto shadow-lg shadow-cyan-500/20">
+                    <CheckCircle className="w-12 h-12 text-[#00e5ff] animate-bounce" />
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-2xl bg-red-950/60 border border-[#ff1e42]/40 flex items-center justify-center mx-auto shadow-lg shadow-red-500/20">
+                    <XCircle className="w-12 h-12 text-[#ff1e42] animate-pulse" />
+                  </div>
+                )}
+              </div>
 
-              <h1 className="text-2xl font-bold text-white mb-2">
-                {puzzleSuccess ? 'Puzzle Solved!' : 'Round 1 Over'}
+              <h1 className={`font-display text-4xl sm:text-5xl font-black mb-2 tracking-wider ${
+                puzzleSuccess ? 'text-[#00e5ff] glow-text-cyan' : 'text-[#ff1e42] glow-text-red'
+              }`}>
+                {puzzleSuccess ? 'BLUEPRINT DECRYPTED!' : 'ROUND 1 CONCLUDED'}
               </h1>
 
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Puzzle className="w-4 h-4 text-mosaic-accent" />
-                <span className="text-mosaic-muted text-sm">
-                  {unlockedCount}/{totalPieces} pieces unlocked
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#06070a] border border-[#1d2536] mb-4">
+                <Puzzle className="w-4 h-4 text-[#00e5ff]" />
+                <span className="font-tech text-xs sm:text-sm text-[#8b9bb4] font-bold tracking-wider uppercase">
+                  {unlockedCount}/{totalPieces} PIECES UNLOCKED
                 </span>
               </div>
 
               {result === 'ROUND_1_FAILED' && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-300 mb-4">
-                  A player ran out of lives. Round 1 ended.
+                <div className="p-3 bg-red-950/40 border border-red-500/50 rounded-xl text-xs sm:text-sm text-red-300 mb-4 font-tech">
+                  An operative exhausted all lives. Round 1 terminated.
                 </div>
               )}
 
-              <p className="text-mosaic-muted text-sm mt-4">
-                Waiting for the Game Master to continue...
+              <p className="font-tech text-xs sm:text-sm text-[#8b9bb4] mt-2 tracking-wide uppercase">
+                Waiting for the Game Master to initiate Round 2 transition...
               </p>
-              <div className="mt-3 w-6 h-6 border-2 border-mosaic-accent/50 border-t-mosaic-accent rounded-full animate-spin mx-auto" />
+              <div className="mt-4 w-6 h-6 border-2 border-[#00e5ff]/30 border-t-[#00e5ff] rounded-full animate-spin mx-auto" />
             </>
           )}
         </div>

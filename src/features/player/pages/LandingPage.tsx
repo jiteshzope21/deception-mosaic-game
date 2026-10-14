@@ -11,7 +11,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { joinGameSchema } from '../../../lib/validation/schemas';
 import { normalizeGameCode } from '../../../lib/utils/helpers';
-import { APP_CONFIG } from '../../../app/config/constants';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -45,32 +44,77 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
-      {/* Background accents */}
+    <div className="min-h-screen arcade-corridor-bg flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-x-hidden">
+      {/* Background arcade grid */}
+      <div className="absolute inset-0 arcade-grid opacity-40 pointer-events-none" />
+
+      {/* Corridor glow lights */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-mosaic-accent/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-mosaic-purple/5 rounded-full blur-3xl" />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-72 bg-red-600/15 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px]" />
       </div>
 
-      <div className="relative w-full max-w-sm text-center">
-        {/* Logo */}
-        <div className="mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-mosaic-accent to-mosaic-purple shadow-2xl shadow-mosaic-accent/30 mb-6">
-            <span className="text-white font-bold text-3xl">D</span>
+      <div className="relative w-full max-w-md sm:max-w-lg md:max-w-xl text-center z-10 space-y-6">
+        {/* Poster Brand Header */}
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 border border-[#1d2536] backdrop-blur-md">
+            <span className="font-arcade text-xs sm:text-sm tracking-[0.3em] font-bold text-[#8b9bb4]">ADG</span>
+            <span className="text-[#ff1e42] glow-text-red font-black text-sm">✕</span>
+            <span className="font-arcade text-xs sm:text-sm tracking-[0.3em] font-bold text-[#fff1e6]">MOSAIC</span>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{APP_CONFIG.name}</h1>
-          <p className="text-mosaic-accent text-sm font-medium uppercase tracking-widest mb-2">
-            {APP_CONFIG.theme}
+          <p className="font-tech text-xs tracking-[0.35em] text-[#8b9bb4] uppercase font-semibold">
+            AI DEVELOPERS GROUP PRESENTS
           </p>
-          <p className="text-mosaic-muted text-sm">{APP_CONFIG.tagline}</p>
         </div>
 
-        {/* Game code entry */}
-        <div className="bg-mosaic-surface border border-mosaic-border rounded-2xl p-6 shadow-xl">
-          <h2 className="text-white font-semibold mb-4">Enter Game Code</h2>
+        {/* Hero Title & Slogans matching poster */}
+        <div className="space-y-1">
+          <p className="font-tech text-xs sm:text-sm tracking-[0.25em] text-[#8b9bb4] uppercase font-bold">
+            ONE OF YOU ISN'T WHO THEY SEEM.
+          </p>
+          <h1 className="font-display text-7xl sm:text-8xl md:text-9xl font-bold tracking-wider text-[#fff1e6] glow-text-red leading-none select-none">
+            DECEPTION
+          </h1>
+          <p className="font-tech text-sm sm:text-base tracking-[0.35em] text-[#ff1e42] glow-text-red font-bold uppercase">
+            TRUST NO ONE.
+          </p>
+        </div>
 
-          <form onSubmit={handleNext} id="player-join-form">
-            <div className="mb-4">
+        {/* Poster Mission Ticker */}
+        <div className="py-1 px-3 inline-flex items-center gap-2 rounded-lg bg-[#0d1017]/80 border border-[#1d2536] text-[11px] sm:text-xs font-tech text-[#8b9bb4] tracking-wider uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] animate-ping" />
+          <span>COMPLETE TASKS</span>
+          <span className="text-[#ff1e42]">•</span>
+          <span>WATCH CLOSELY</span>
+          <span className="text-[#ff1e42]">•</span>
+          <span>FIND THE IMPOSTER</span>
+          <span className="text-[#ff1e42]">•</span>
+          <span>VOTE</span>
+        </div>
+
+        {/* Terminal Access Card */}
+        <div className="arcade-card p-6 sm:p-8 relative">
+          {/* Top highlight bar */}
+          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#ff1e42] to-transparent opacity-80" />
+
+          <div className="flex items-center justify-between mb-4 border-b border-[#1d2536] pb-3">
+            <span className="font-tech text-xs uppercase tracking-widest text-[#8b9bb4] font-bold">
+              FACILITY GATEWAY
+            </span>
+            <span className="font-arcade text-[10px] text-[#00e5ff] tracking-wider uppercase px-2 py-0.5 rounded bg-[#00e5ff]/10 border border-[#00e5ff]/30">
+              LIVE DECK
+            </span>
+          </div>
+
+          <h2 className="font-arcade text-sm sm:text-base font-bold text-[#fff1e6] uppercase tracking-wider mb-2">
+            ENTER GAME ACCESS CODE
+          </h2>
+          <p className="font-tech text-xs text-[#8b9bb4] mb-5">
+            Type the 4-digit code provided on the main facility display.
+          </p>
+
+          <form onSubmit={handleNext} id="player-join-form" className="space-y-4">
+            <div>
               <input
                 id="game-code-input"
                 type="text"
@@ -78,13 +122,15 @@ export default function LandingPage() {
                 onChange={handleCodeChange}
                 placeholder="MOSAIC-XXXX"
                 maxLength={11}
-                className="w-full px-4 py-4 bg-mosaic-dark border border-mosaic-border rounded-xl text-white text-center text-xl font-mono tracking-widest placeholder-mosaic-muted/30 focus:outline-none focus:ring-2 focus:ring-mosaic-accent focus:border-transparent transition-all uppercase"
+                className="w-full px-4 py-4 bg-[#06070a] border-2 border-[#1d2536] rounded-xl text-[#fff1e6] text-center text-2xl sm:text-3xl font-arcade tracking-[0.2em] placeholder-[#8b9bb4]/30 focus:border-[#00e5ff] focus:shadow-[0_0_20px_rgba(0,229,255,0.35)] focus:outline-none transition-all uppercase"
                 autoComplete="off"
                 autoCapitalize="characters"
                 spellCheck={false}
               />
               {error && (
-                <p className="mt-2 text-sm text-red-400">{error}</p>
+                <div className="mt-2.5 p-2 rounded-lg bg-red-950/40 border border-red-500/50 text-xs font-tech text-red-300">
+                  {error}
+                </div>
               )}
             </div>
 
@@ -92,13 +138,16 @@ export default function LandingPage() {
               id="player-join-next-btn"
               type="submit"
               disabled={isChecking || gameCode.length === 0}
-              className="w-full py-4 bg-gradient-to-r from-mosaic-accent to-mosaic-purple text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-mosaic-accent/20"
+              className="arcade-btn-primary w-full py-4 rounded-xl flex items-center justify-center gap-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               {isChecking ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>SYNCHRONIZING...</span>
+                </>
               ) : (
                 <>
-                  Next
+                  <span>INITIALIZE MISSION</span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -106,16 +155,16 @@ export default function LandingPage() {
           </form>
         </div>
 
-        {/* GM link */}
-        <p className="mt-6 text-xs text-mosaic-muted">
-          Game Master?{' '}
+        {/* GM Gateway Override */}
+        <div className="pt-2">
           <a
             href="/gm/login"
-            className="text-mosaic-accent hover:underline"
+            className="inline-flex items-center gap-1.5 font-tech text-xs sm:text-sm text-[#8b9bb4] hover:text-[#00e5ff] transition-colors uppercase tracking-wider"
           >
-            Sign in here
+            <span>GAME MASTER LEVEL 5 ACCESS OVERRIDE</span>
+            <span className="text-[#00e5ff]">→</span>
           </a>
-        </p>
+        </div>
       </div>
     </div>
   );

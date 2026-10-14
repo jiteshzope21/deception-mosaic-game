@@ -65,8 +65,8 @@ export default function GameCompletePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-mosaic-dark flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-mosaic-accent border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-corridor flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-neon-red border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(255,30,66,0.5)]" />
       </div>
     );
   }
@@ -87,84 +87,108 @@ export default function GameCompletePage() {
     : 'GAME OVER';
 
   const resultDesc: Record<string, string> = {
-    CREWMATES_WIN: 'The Imposter was correctly identified and voted out. Well played, crew!',
-    IMPOSTER_WIN_KILLS: 'The Imposter successfully eliminated 2 crewmates and survived the vote.',
-    IMPOSTER_WIN_TIME: 'The Imposter survived all 7 minutes without being caught.',
-    ROUND_1_FAILED: 'The team ran out of lives or time in Round 1.',
+    CREWMATES_WIN: 'The Imposter was uncovered and neutralized. Sector secured, crewmates.',
+    IMPOSTER_WIN_KILLS: 'The Imposter executed lethal sabotage, eliminating 2 crewmates and evading justice.',
+    IMPOSTER_WIN_TIME: 'The Imposter evaded capture across all operational cycles.',
+    ROUND_1_FAILED: 'Operational lives exhausted in Sector 1 decrypt phase.',
   };
 
   const isGameComplete = state.phase === GAME_PHASE.GAME_COMPLETE;
 
   return (
-    <div className="min-h-screen bg-mosaic-dark flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-4">
+    <div className="min-h-screen arcade-corridor-bg text-bone-cream relative overflow-hidden flex flex-col items-center justify-center p-4">
+      <div className="absolute inset-0 arcade-grid opacity-30 pointer-events-none" />
+
+      <div className="w-full max-w-md space-y-4 relative z-10">
+        {/* Top ADG X MOSAIC Sub-badge */}
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-tactical-slate/90 border border-steel-border/80 rounded-full text-[11px] font-arcade tracking-widest text-muted-steel uppercase">
+            <span>ADG</span>
+            <span className="text-neon-red">✕</span>
+            <span>MOSAIC</span>
+            <span className="w-1 h-1 rounded-full bg-neon-red animate-ping" />
+          </div>
+        </div>
+
         {/* Result Card */}
         <div
-          className={`rounded-2xl p-8 border-2 text-center shadow-2xl ${
+          className={`arcade-card p-6 sm:p-8 text-center relative overflow-hidden ${
             isCrewmatesWin
-              ? 'bg-gradient-to-br from-emerald-950 to-mosaic-surface border-emerald-500/60 shadow-emerald-900/30'
+              ? 'border-glow-cyan'
               : isImposterWin
-              ? 'bg-gradient-to-br from-red-950 to-mosaic-surface border-red-500/60 shadow-red-900/30'
-              : 'bg-mosaic-surface border-mosaic-border'
+              ? 'border-glow-red'
+              : 'border-steel-border'
           }`}
         >
-          <div className="mb-4">
+          <div className="mb-3 inline-flex p-4 rounded-2xl bg-corridor/90 border border-steel-border shadow-inner">
             {isCrewmatesWin ? (
-              <Trophy className="w-20 h-20 text-yellow-400 mx-auto" />
+              <Trophy className="w-16 h-16 text-electric-cyan drop-shadow-[0_0_15px_rgba(0,229,255,0.6)]" />
             ) : isImposterWin ? (
-              <Skull className="w-20 h-20 text-red-400 mx-auto" />
+              <Skull className="w-16 h-16 text-neon-red drop-shadow-[0_0_15px_rgba(255,30,66,0.7)] animate-pulse" />
             ) : (
-              <CheckCircle className="w-20 h-20 text-mosaic-muted mx-auto" />
+              <CheckCircle className="w-16 h-16 text-muted-steel" />
             )}
           </div>
-          <h1 className={`text-3xl font-black mb-3 tracking-wide ${
-            isCrewmatesWin ? 'text-emerald-300' : isImposterWin ? 'text-red-300' : 'text-white'
-          }`}>
+          <h1
+            className={`text-5xl sm:text-6xl font-display uppercase tracking-wider mb-2 ${
+              isCrewmatesWin ? 'text-electric-cyan glow-text-cyan' : isImposterWin ? 'text-neon-red glow-text-red' : 'text-bone-cream'
+            }`}
+          >
             {resultTitle}
           </h1>
-          <p className="text-mosaic-muted text-sm">
+          <p className="text-muted-steel text-sm sm:text-base font-tech leading-relaxed">
             {resultDesc[result ?? ''] ?? ''}
           </p>
         </div>
 
         {/* Imposter Reveal */}
         {summary?.imposterName && (
-          <div className="bg-mosaic-surface border border-red-700/40 rounded-xl p-5 text-center">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-red-400">The Imposter Was</span>
+          <div className="arcade-card p-5 text-center border-glow-red relative overflow-hidden">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-neon-red" />
+              <span className="text-xs font-arcade font-bold uppercase tracking-widest text-neon-red">
+                IMPOSTER IDENTITY REVEALED
+              </span>
             </div>
-            <div className="text-2xl font-black text-red-300">{summary.imposterName}</div>
+            <div className="text-3xl sm:text-4xl font-display uppercase tracking-wider text-bone-cream glow-text-red">
+              {summary.imposterName}
+            </div>
+            <p className="text-[11px] font-arcade text-muted-steel uppercase tracking-widest mt-1">
+              TRUST NO ONE
+            </p>
           </div>
         )}
 
         {/* Player Roles */}
         {summary?.players && summary.players.length > 0 && (
-          <div className="bg-mosaic-surface border border-mosaic-border rounded-xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-widest text-mosaic-muted mb-3">Player Roles</div>
+          <div className="arcade-card-elevated p-4 sm:p-5 border-steel-border">
+            <div className="text-xs font-arcade font-bold uppercase tracking-widest text-muted-steel mb-3 flex items-center justify-between">
+              <span>SQUADRON DOSSIER REVELATION</span>
+              <span>{summary.players.length} OPERATIVES</span>
+            </div>
             <div className="space-y-2">
               {summary.players.map((p: { id: string; playerName: string; role: string; status: string }) => (
-                <div key={p.id} className="flex items-center justify-between py-1">
+                <div key={p.id} className="flex items-center justify-between p-2 rounded-xl bg-corridor/90 border border-steel-border/60">
                   <div className="flex items-center gap-2">
                     {p.role === 'IMPOSTER' ? (
-                      <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <AlertTriangle className="w-4 h-4 text-neon-red flex-shrink-0" />
                     ) : (
-                      <Shield className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <Shield className="w-4 h-4 text-electric-cyan flex-shrink-0" />
                     )}
-                    <span className={`font-medium text-sm ${p.status === 'ELIMINATED' ? 'line-through text-mosaic-muted' : 'text-white'}`}>
+                    <span className={`font-tech font-semibold text-sm ${p.status === 'ELIMINATED' ? 'line-through text-muted-steel/60' : 'text-bone-cream'}`}>
                       {p.playerName}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-arcade font-bold uppercase px-2 py-0.5 rounded-full border ${
                       p.role === 'IMPOSTER'
-                        ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                        ? 'bg-neon-red/10 text-neon-red border-neon-red/30'
+                        : 'bg-electric-cyan/10 text-electric-cyan border-electric-cyan/30'
                     }`}>
-                      {p.role === 'IMPOSTER' ? 'Imposter' : 'Crewmate'}
+                      {p.role === 'IMPOSTER' ? 'IMPOSTER' : 'CREWMATE'}
                     </span>
                     {p.status === 'ELIMINATED' && (
-                      <span className="text-xs text-mosaic-muted">✗</span>
+                      <span className="text-[10px] text-neon-red font-arcade font-bold">KIA</span>
                     )}
                   </div>
                 </div>
@@ -177,14 +201,14 @@ export default function GameCompletePage() {
         {isGameComplete && (
           <div className="pt-2">
             {finishError && (
-              <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-center">
-                <p className="text-xs text-red-400 mb-2">{finishError}</p>
+              <div className="mb-3 p-3 bg-neon-red/10 border border-neon-red/40 rounded-xl text-center">
+                <p className="text-xs text-neon-red font-tech mb-2">{finishError}</p>
                 <button
                   type="button"
                   onClick={() => navigate('/', { replace: true })}
-                  className="text-xs text-mosaic-accent underline font-semibold cursor-pointer"
+                  className="text-xs text-electric-cyan underline font-arcade uppercase cursor-pointer"
                 >
-                  Return to Login
+                  RETURN TO LOGIN
                 </button>
               </div>
             )}
@@ -194,17 +218,17 @@ export default function GameCompletePage() {
               type="button"
               disabled={isFinishing}
               onClick={handleFinish}
-              className="w-full py-4 bg-gradient-to-r from-mosaic-accent to-mosaic-purple hover:opacity-90 text-white font-bold text-base rounded-xl transition-all shadow-lg shadow-mosaic-accent/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="arcade-btn-primary w-full py-4 text-base font-arcade uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isFinishing ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Exiting Game...</span>
+                  <span>TERMINATING SESSION...</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>FINISH</span>
+                  <span>FINISH & RETURN TO HUB</span>
                 </>
               )}
             </button>
